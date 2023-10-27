@@ -81,14 +81,6 @@ const renderer = struct {
         _ = events_arena.reset(.retain_capacity);
 
         // Allocate the events array on the arena.
-        //
-        // ==========================================================
-        // TODO(SeedyROM): I'm not sure this makes sense... like...
-        // Am I creating a new array every time I call this function?
-        // Or is it using the memory from the previous call?
-        // I think it's the former, which is not what I want.
-        // ==========================================================
-        //
         var _events = try std.ArrayList(WindowEvent).initCapacity(
             events_arena.allocator(),
             32,
