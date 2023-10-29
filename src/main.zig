@@ -1,123 +1,46 @@
 const std = @import("std");
 
+const audio = @import("audio.zig");
+const renderer = @import("renderer.zig");
+
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-var gpaallocator = gpa.allocator();
+var gpa_allocator = gpa.allocator();
 
 pub fn main() !void {
-    try renderer.init(gpaallocator);
-    defer renderer.deinit();
+    try renderer.init(gpa_allocator);
+    try audio.init(gpa_allocator);
+    defer {
+        audio.deinit();
+        renderer.deinit();
+    }
 
+    var clear_color: [3]u8 = .{ 127, 63, 255 };
     var running = true;
     while (running) {
         for (try renderer.events()) |event| {
             switch (event) {
                 .quit => running = false,
-            }
-        }
+                .mouse_down => |mouse_down| {
+                    const x = @as(f32, @floatFromInt(mouse_down.x));
+                    audio.setFrequency(x);
+                    clear_color[0] = @as(u8, @intCast(@mod(mouse_down.x, 255)));
 
-        try renderer.clear(127, 63, 255);
-        renderer.present();
-
-        std.time.sleep(60 * 1_000_000);
-    }
-}
-
-const renderer = struct {
-    const c = @cImport({
-        @cInclude("SDL2/SDL.h");
-    });
-
-    var allocator: std.mem.Allocator = undefined;
-    var events_arena: std.heap.ArenaAllocator = undefined;
-
-    var window: ?*c.SDL_Window = null;
-    var _renderer: ?*c.SDL_Renderer = null;
-
-    const WindowEvent = union(enum(c_int)) {
-        quit,
-    };
-
-    pub fn init(_allocator: std.mem.Allocator) !void {
-        allocator = _allocator;
-        events_arena = std.heap.ArenaAllocator.init(allocator);
-
-        std.log.debug("Initializing the renderer", .{});
-
-        std.log.debug("Initializing SDL video subsystem", .{});
-        if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
-            return error.SDLInitFailed;
-        }
-
-        std.log.debug("Creating SDL_Window", .{});
-        window = c.SDL_CreateWindow(
-            "<::- podpad -::>",
-            c.SDL_WINDOWPOS_CENTERED,
-            c.SDL_WINDOWPOS_CENTERED,
-            600,
-            600,
-            c.SDL_WINDOW_SHOWN,
-        );
-        if (window == null) {
-            std.log.err("SDL_CreateWindow failed: {s}\n", .{c.SDL_GetError()});
-            return error.SDLCreateWindowFailed;
-        }
-
-        std.log.debug("Creating SDL_Renderer", .{});
-        _renderer = c.SDL_CreateRenderer(
-            window,
-            -1,
-            c.SDL_RENDERER_ACCELERATED | c.SDL_RENDERER_PRESENTVSYNC,
-        );
-        if (_renderer == null) {
-            std.log.err("SDL_CreateRenderer failed: {s}\n", .{c.SDL_GetError()});
-            return error.SDLCreateRendererFailed;
-        }
-
-        std.log.debug("Intiialized renderer", .{});
-    }
-
-    pub fn events() ![]WindowEvent {
-        // Reset the arena to retain capacity.
-        _ = events_arena.reset(.retain_capacity);
-
-        // Allocate the events array on the arena.
-        var _events = try std.ArrayList(WindowEvent).initCapacity(
-            events_arena.allocator(),
-            32,
-        );
-
-        // Poll for events.
-        var event = c.SDL_Event{ .type = 0 };
-        while (c.SDL_PollEvent(&event) != 0) {
-            switch (event.type) {
-                c.SDL_QUIT => {
-                    try _events.append(.quit);
+                    if (mouse_down.button == .left) {
+                        audio.noteOn();
+                    }
+                },
+                .mouse_up => |mouse_up| {
+                    if (mouse_up.button == .left) {
+                        audio.noteOff();
+                    }
                 },
                 else => {},
             }
         }
 
-        // Return the items from the array list.
-        return _events.items;
-    }
+        try renderer.clear(clear_color[0], clear_color[1], clear_color[2]);
+        renderer.present();
 
-    pub fn deinit() void {
-        std.log.debug("Destroying renderer", .{});
-        c.SDL_DestroyRenderer(_renderer);
-        c.SDL_DestroyWindow(window);
-        c.SDL_Quit();
+        std.time.sleep(60 * 1_000_000);
     }
-
-    pub fn clear(r: u8, g: u8, b: u8) !void {
-        if (c.SDL_SetRenderDrawColor(_renderer, r, g, b, 255) != 0) {
-            return error.SDLSetRenderDrawColorFailed;
-        }
-        if (c.SDL_RenderClear(_renderer) != 0) {
-            return error.SDLRenderClearFailed;
-        }
-    }
-
-    pub fn present() void {
-        c.SDL_RenderPresent(_renderer);
-    }
-};
+}
