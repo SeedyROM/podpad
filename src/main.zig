@@ -21,11 +21,10 @@ pub fn main() !void {
             switch (event) {
                 .quit => running = false,
                 .mouse_down => |mouse_down| {
-                    const x = @as(f32, @floatFromInt(mouse_down.x));
-                    audio.setFrequency(x);
-                    clear_color[0] = @as(u8, @intCast(@mod(mouse_down.x, 255)));
-
                     if (mouse_down.button == .left) {
+                        const x = @as(f32, @floatFromInt(mouse_down.x));
+                        audio.setFrequency(x);
+                        clear_color[0] = @as(u8, @intCast(@mod(mouse_down.x, 255)));
                         audio.noteOn();
                     }
                 },
