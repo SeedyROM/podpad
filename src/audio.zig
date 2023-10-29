@@ -189,24 +189,20 @@ pub fn deinit() void {
 }
 
 fn callback(userdata: ?*anyopaque, stream: [*c]u8, len: c_int) void {
+    // Get the audio system state.
     if (userdata == null) return;
     var state: *State = @ptrCast(@alignCast(userdata));
-    var buffer = stream_to_slice(stream, len);
 
+    // Get an aligned slice of the stream for f32 writing
+    const bytes: []align(@alignOf(f32)) u8 = @alignCast(stream[0..@intCast(len)]);
+    // Convert the slice to a slice of f32s
+    var buffer = std.mem.bytesAsSlice(f32, bytes);
+
+    // Write the audio samples to the buffer
     for (0..buffer.len) |i| {
         const x = state.synth.next();
         buffer[i] = x;
     }
-}
-
-inline fn stream_to_slice(stream: [*c]u8, len: c_int) []f32 {
-    const stream_size = @as(usize, @intCast(len));
-    const buffer_size = stream_size / @sizeOf(f32);
-    var buffer: []f32 = std.mem.alignInSlice(
-        std.mem.bytesAsSlice(f32, stream[0..stream_size]),
-        @sizeOf(f32),
-    ).?[0..buffer_size];
-    return buffer;
 }
 
 pub fn setFrequency(frequency: f32) void {
