@@ -1,7 +1,7 @@
 const std = @import("std");
 const c = @cImport({
-    @cInclude("SDL.h");
-    @cInclude("SDL_audio.h");
+    @cInclude("SDL2/SDL.h");
+    @cInclude("SDL2/SDL_audio.h");
 });
 
 const ADSR = struct {
