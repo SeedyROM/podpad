@@ -20,10 +20,10 @@ const ADSR = struct {
 
     pub fn init(sample_rate: f32) ADSR {
         return ADSR{
-            .attack_time = 0.001,
+            .attack_time = 0.005,
             .decay_time = 0.1,
             .sustain_level = 0.5,
-            .release_time = 0.8,
+            .release_time = 1.0,
             .sample_rate = sample_rate,
             .state = .off,
             .envelope_value = 0.0,

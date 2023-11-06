@@ -2,42 +2,47 @@ const std = @import("std");
 
 const audio = @import("audio.zig");
 const renderer = @import("renderer.zig");
+const ui = @import("ui.zig");
+const Vec2i = renderer.Vec2i;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var gpa_allocator = gpa.allocator();
 
 pub fn main() !void {
     try renderer.init(gpa_allocator);
-    try audio.init(gpa_allocator);
-    defer {
-        audio.deinit();
-        renderer.deinit();
-    }
+    defer renderer.deinit();
 
-    var clear_color: [3]u8 = .{ 127, 63, 255 };
+    try audio.init(gpa_allocator);
+    defer audio.deinit();
+
+    try ui.init(gpa_allocator);
+    defer ui.deinit();
+
+    var mouse_position: Vec2i = .{ .x = 0, .y = 0 };
+    var is_mouse_down: bool = false;
+
+    var clear_color: [3]u8 = .{ 0, 0, 0 };
     var running = true;
     while (running) {
         for (try renderer.events()) |event| {
             switch (event) {
                 .quit => running = false,
-                .mouse_down => |mouse_down| {
-                    if (mouse_down.button == .left) {
-                        const x = 30 + @as(f32, @floatFromInt(mouse_down.x)) / 4;
-                        audio.setFrequency(x);
-                        clear_color[0] = @as(u8, @intCast(@mod(mouse_down.x, 255)));
-                        audio.noteOn();
-                    }
+                .mouse_down => {
+                    is_mouse_down = true;
                 },
-                .mouse_up => |mouse_up| {
-                    if (mouse_up.button == .left) {
-                        audio.noteOff();
-                    }
+                .mouse_up => {
+                    is_mouse_down = false;
                 },
-                else => {},
+                .mouse_motion => |mouse_motion| {
+                    mouse_position = .{ .x = mouse_motion.x, .y = mouse_motion.y };
+                },
             }
         }
 
+        try ui.update(mouse_position, is_mouse_down);
+
         try renderer.clear(clear_color[0], clear_color[1], clear_color[2]);
+        try ui.render();
         renderer.present();
 
         std.time.sleep(60 * 1_000_000);

@@ -10,6 +10,25 @@ var events_arena: std.heap.ArenaAllocator = undefined;
 var window: ?*c.SDL_Window = null;
 var _renderer: ?*c.SDL_Renderer = null;
 
+pub const Color = packed struct {
+    r: u8 = 0,
+    g: u8 = 0,
+    b: u8 = 0,
+    a: u8 = 255,
+};
+
+pub const Rect = packed struct {
+    x: i32 = 0,
+    y: i32 = 0,
+    w: i32 = 0,
+    h: i32 = 0,
+};
+
+pub const Vec2i = packed struct {
+    x: i32 = 0,
+    y: i32 = 0,
+};
+
 const WindowEvent = union(enum) {
     quit,
     mouse_motion: struct {
@@ -52,8 +71,8 @@ pub fn init(_allocator: std.mem.Allocator) !void {
         "<::- podpad -::>",
         c.SDL_WINDOWPOS_CENTERED,
         c.SDL_WINDOWPOS_CENTERED,
-        600,
-        600,
+        408,
+        408,
         c.SDL_WINDOW_SHOWN,
     );
     if (window == null) {
@@ -151,4 +170,14 @@ pub fn clear(r: u8, g: u8, b: u8) !void {
 
 pub fn present() void {
     c.SDL_RenderPresent(_renderer);
+}
+
+pub fn drawRect(rect: Rect, color: Color) !void {
+    if (c.SDL_SetRenderDrawColor(_renderer, color.r, color.g, color.b, color.a) != 0) {
+        return error.SDLSetRenderDrawColorFailed;
+    }
+    var _rect = c.SDL_Rect{ .x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h };
+    if (c.SDL_RenderFillRect(_renderer, &_rect) != 0) {
+        return error.SDLRenderFillRectFailed;
+    }
 }
