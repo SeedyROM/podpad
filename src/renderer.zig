@@ -159,8 +159,8 @@ pub fn deinit() void {
     c.SDL_Quit();
 }
 
-pub fn clear(r: u8, g: u8, b: u8) !void {
-    if (c.SDL_SetRenderDrawColor(_renderer, r, g, b, 255) != 0) {
+pub fn clear(color: Color) !void {
+    if (c.SDL_SetRenderDrawColor(_renderer, color.r, color.g, color.b, 255) != 0) {
         return error.SDLSetRenderDrawColorFailed;
     }
     if (c.SDL_RenderClear(_renderer) != 0) {

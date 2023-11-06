@@ -21,7 +21,7 @@ pub fn main() !void {
     var mouse_position: Vec2i = .{ .x = 0, .y = 0 };
     var is_mouse_down: bool = false;
 
-    var clear_color: [3]u8 = .{ 0, 0, 0 };
+    var clear_color = .{ .r = 0, .g = 0, .b = 0 };
     var running = true;
     while (running) {
         for (try renderer.events()) |event| {
@@ -41,10 +41,10 @@ pub fn main() !void {
 
         try ui.update(mouse_position, is_mouse_down);
 
-        try renderer.clear(clear_color[0], clear_color[1], clear_color[2]);
+        try renderer.clear(clear_color);
         try ui.render();
         renderer.present();
 
-        std.time.sleep(60 * 1_000_000);
+        std.time.sleep(16 * 1_000_000);
     }
 }
