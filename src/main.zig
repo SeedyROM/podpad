@@ -19,11 +19,12 @@ pub fn main() !void {
     defer ui.deinit();
 
     var mouse_position: Vec2i = .{ .x = 0, .y = 0 };
-    var is_mouse_down: bool = false;
 
     var clear_color = .{ .r = 0, .g = 0, .b = 0 };
     var running = true;
     while (running) {
+        var is_mouse_down: bool = false;
+
         for (try renderer.events()) |event| {
             switch (event) {
                 .quit => running = false,
