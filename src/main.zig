@@ -19,10 +19,16 @@ pub fn main() !void {
     defer ui.deinit();
 
     var mouse_position: Vec2i = .{ .x = 0, .y = 0 };
-
     var clear_color = .{ .r = 0, .g = 0, .b = 0 };
     var running = true;
+    var current_frame: u64 = 0;
+    var last_frame: u64 = 0;
+
     while (running) {
+        last_frame = current_frame;
+        current_frame = renderer.now();
+        var delta = renderer.getDeltaTime(current_frame, last_frame);
+
         var is_mouse_down: bool = false;
 
         for (try renderer.events()) |event| {
@@ -40,12 +46,15 @@ pub fn main() !void {
             }
         }
 
-        try ui.update(mouse_position, is_mouse_down);
+        // Update the UI
+        try ui.update(mouse_position, is_mouse_down, delta);
 
+        // Draw the UI
         try renderer.clear(clear_color);
         try ui.render();
         renderer.present();
 
+        // Keep up a steady 60 FPS
         std.time.sleep(16 * 1_000_000);
     }
 }

@@ -9,14 +9,14 @@ var allocator: std.mem.Allocator = undefined;
 const sequencer = struct {
     const Pad = struct {
         on: bool = false,
-        note: u8 = 0,
+        note: i32 = 0,
         hovered: bool = false,
         position: Vec2i = .{ .x = 0, .y = 0 },
         active: bool = false,
 
         const size = 16;
 
-        pub fn init(note: u8) Pad {
+        pub fn init(note: i32) Pad {
             return .{
                 .on = false,
                 .note = note,
@@ -72,7 +72,7 @@ const sequencer = struct {
 
             // Initialize each pad
             for (0..column.pads.len) |i| {
-                var pad = Pad.init(@as(u8, @intCast(i)));
+                var pad = Pad.init(@intCast(i + 45));
                 column.pads[i] = pad;
             }
 
@@ -133,6 +133,8 @@ const sequencer = struct {
     };
 
     var pattern: Pattern = undefined;
+    var duration: f32 = 0.0;
+    var currentColumn: usize = 0;
 
     pub fn init() !void {
         pattern = try Pattern.init();
@@ -140,6 +142,52 @@ const sequencer = struct {
 
     pub fn deinit() void {
         pattern.deinit();
+    }
+
+    pub fn update(mouse_position: Vec2i, is_mouse_down: bool, frame_time: f32) void {
+        // Update the sequencer
+        for (0..sequencer.pattern.columns.len) |i| {
+            var column = &sequencer.pattern.columns[i];
+            for (0..column.pads.len) |j| {
+                var pad = &column.pads[j];
+                pad.update(mouse_position, is_mouse_down);
+            }
+        }
+
+        // Update the current column and play the notes
+        sequencer.duration += frame_time;
+
+        if (sequencer.duration >= 200.0) {
+            sequencer.duration = 0.0;
+            sequencer.currentColumn += 1;
+            if (sequencer.currentColumn >= sequencer.pattern.columns.len) {
+                sequencer.currentColumn = 0;
+            }
+
+            // Clear the previous column of active pads
+            var last_column_index: usize = 0;
+            if (sequencer.currentColumn == 0) {
+                last_column_index = sequencer.pattern.columns.len - 1;
+            } else {
+                last_column_index = sequencer.currentColumn - 1;
+            }
+            var last_column = &sequencer.pattern.columns[last_column_index];
+            for (0..last_column.pads.len) |i| {
+                var pad = &last_column.pads[i];
+                pad.active = false;
+                audio.noteOff();
+            }
+
+            // Set the current column's pads to active and play the notes
+            var column = &sequencer.pattern.columns[sequencer.currentColumn];
+            for (0..column.pads.len) |i| {
+                var pad = &column.pads[i];
+                pad.active = true;
+                if (pad.on) {
+                    audio.noteOn(pad.note);
+                }
+            }
+        }
     }
 
     pub fn draw(pos: Vec2i) !void {
@@ -163,15 +211,8 @@ pub fn deinit() void {
     sequencer.deinit();
 }
 
-pub fn update(mouse_position: Vec2i, is_mouse_down: bool) !void {
-    // Update the sequencer
-    for (0..sequencer.pattern.columns.len) |i| {
-        var column = &sequencer.pattern.columns[i];
-        for (0..column.pads.len) |j| {
-            var pad = &column.pads[j];
-            pad.update(mouse_position, is_mouse_down);
-        }
-    }
+pub fn update(mouse_position: Vec2i, is_mouse_down: bool, delta: f32) !void {
+    sequencer.update(mouse_position, is_mouse_down, delta);
 }
 
 pub fn render() !void {

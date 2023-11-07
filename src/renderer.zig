@@ -181,3 +181,12 @@ pub fn drawRect(rect: Rect, color: Color) !void {
         return error.SDLRenderFillRectFailed;
     }
 }
+
+pub fn now() u64 {
+    return c.SDL_GetPerformanceCounter();
+}
+
+pub fn getDeltaTime(start: u64, end: u64) f32 {
+    var frequency = c.SDL_GetPerformanceFrequency();
+    return @as(f32, @floatFromInt(start - end)) * 1000 / @as(f32, @floatFromInt(frequency));
+}
