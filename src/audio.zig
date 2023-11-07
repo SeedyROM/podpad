@@ -20,7 +20,7 @@ const ADSR = struct {
 
     pub fn init(sample_rate: f32) ADSR {
         return ADSR{
-            .attack_time = 0.005,
+            .attack_time = 0.01,
             .decay_time = 0.1,
             .sustain_level = 0.5,
             .release_time = 1.0,
@@ -97,6 +97,7 @@ const SineOsc = struct {
 
     pub fn next(self: *SineOsc) f32 {
         defer self.phase += self.frequency / 44100.0;
+        if (self.phase > 1.0) self.phase -= 1.0;
         return std.math.sin(self.phase * 2.0 * std.math.pi);
     }
 };
@@ -122,6 +123,8 @@ const SineSynth = struct {
     pub fn noteOn(self: *SineSynth, note: i32) void {
         self.oscillator.frequency = midiNoteToPitch(note);
         self.adsr.noteOn();
+
+        std.debug.print("Note on: {} ({d})\n", .{ note, self.oscillator.frequency });
     }
 
     pub fn noteOff(self: *SineSynth) void {
@@ -162,7 +165,7 @@ pub fn init(_allocator: std.mem.Allocator) !void {
         .format = c.AUDIO_F32,
         .channels = 2,
         .silence = 0,
-        .samples = 512,
+        .samples = 128,
         .padding = 0,
         .size = 0,
         .callback = @ptrCast(&callback),
@@ -199,10 +202,13 @@ fn callback(userdata: ?*anyopaque, stream: [*c]u8, len: c_int) void {
     // Convert the slice to a slice of f32s
     var buffer = std.mem.bytesAsSlice(f32, bytes);
 
-    // Write the audio samples to the buffer
-    for (0..buffer.len) |i| {
+    // Write the audio samples to the stereo buffer
+
+    while (buffer.len > 0) {
         const x = state.synth.next();
-        buffer[i] = x;
+        buffer[0] = x;
+        buffer[1] = x;
+        buffer = buffer[2..];
     }
 }
 
