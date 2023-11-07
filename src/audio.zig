@@ -20,10 +20,10 @@ const ADSR = struct {
 
     pub fn init(sample_rate: f32) ADSR {
         return ADSR{
-            .attack_time = 0.001,
+            .attack_time = 0.005,
             .decay_time = 0.1,
             .sustain_level = 0.5,
-            .release_time = 0.8,
+            .release_time = 1.0,
             .sample_rate = sample_rate,
             .state = .off,
             .envelope_value = 0.0,
@@ -119,7 +119,8 @@ const SineSynth = struct {
         };
     }
 
-    pub fn noteOn(self: *SineSynth) void {
+    pub fn noteOn(self: *SineSynth, note: i32) void {
+        self.oscillator.frequency = midiNoteToPitch(note);
         self.adsr.noteOn();
     }
 
@@ -209,10 +210,14 @@ pub fn setFrequency(frequency: f32) void {
     _state.synth.oscillator.frequency = frequency;
 }
 
-pub fn noteOn() void {
-    _state.synth.noteOn();
+pub fn noteOn(note: i32) void {
+    _state.synth.noteOn(note);
 }
 
 pub fn noteOff() void {
     _state.synth.noteOff();
+}
+
+fn midiNoteToPitch(note: i32) f32 {
+    return 440.0 * std.math.pow(f32, 2.0, @as(f32, @floatFromInt(note - 69)) / 12.0);
 }

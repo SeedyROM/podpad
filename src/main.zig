@@ -2,44 +2,59 @@ const std = @import("std");
 
 const audio = @import("audio.zig");
 const renderer = @import("renderer.zig");
+const ui = @import("ui.zig");
+const Vec2i = renderer.Vec2i;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var gpa_allocator = gpa.allocator();
 
 pub fn main() !void {
     try renderer.init(gpa_allocator);
-    try audio.init(gpa_allocator);
-    defer {
-        audio.deinit();
-        renderer.deinit();
-    }
+    defer renderer.deinit();
 
-    var clear_color: [3]u8 = .{ 127, 63, 255 };
+    try audio.init(gpa_allocator);
+    defer audio.deinit();
+
+    try ui.init(gpa_allocator);
+    defer ui.deinit();
+
+    var mouse_position: Vec2i = .{ .x = 0, .y = 0 };
+    var clear_color = .{ .r = 0, .g = 0, .b = 0 };
     var running = true;
+    var current_frame: u64 = 0;
+    var last_frame: u64 = 0;
+
     while (running) {
+        last_frame = current_frame;
+        current_frame = renderer.now();
+        var delta = renderer.getDeltaTime(current_frame, last_frame);
+
+        var is_mouse_down: bool = false;
+
         for (try renderer.events()) |event| {
             switch (event) {
                 .quit => running = false,
-                .mouse_down => |mouse_down| {
-                    if (mouse_down.button == .left) {
-                        const x = 30 + @as(f32, @floatFromInt(mouse_down.x)) / 4;
-                        audio.setFrequency(x);
-                        clear_color[0] = @as(u8, @intCast(@mod(mouse_down.x, 255)));
-                        audio.noteOn();
-                    }
+                .mouse_down => {
+                    is_mouse_down = true;
                 },
-                .mouse_up => |mouse_up| {
-                    if (mouse_up.button == .left) {
-                        audio.noteOff();
-                    }
+                .mouse_up => {
+                    is_mouse_down = false;
                 },
-                else => {},
+                .mouse_motion => |mouse_motion| {
+                    mouse_position = .{ .x = mouse_motion.x, .y = mouse_motion.y };
+                },
             }
         }
 
-        try renderer.clear(clear_color[0], clear_color[1], clear_color[2]);
+        // Update the UI
+        try ui.update(mouse_position, is_mouse_down, delta);
+
+        // Draw the UI
+        try renderer.clear(clear_color);
+        try ui.render();
         renderer.present();
 
-        std.time.sleep(60 * 1_000_000);
+        // Keep up a steady 60 FPS
+        std.time.sleep(16 * 1_000_000);
     }
 }
