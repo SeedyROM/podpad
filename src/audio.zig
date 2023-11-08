@@ -85,6 +85,163 @@ const ADSR = struct {
     }
 };
 
+/// Implements a state variable filter with the bilinear transform.
+/// TODO: This shit brokey...
+pub const Filter = struct {
+    const Self = @This();
+
+    const Type = enum {
+        lowpass,
+        highpass,
+        bandpass,
+        notch,
+        peak,
+        lowshelf,
+        highshelf,
+    };
+
+    type: Type = .lowpass,
+    frequency: f32 = 1000.0,
+    q: f32 = 1.0,
+    gain: f32 = 0.0,
+
+    a0: f32 = 0.0,
+    a1: f32 = 0.0,
+    a2: f32 = 0.0,
+    b0: f32 = 1.0,
+    b1: f32 = 0.0,
+    b2: f32 = 0.0,
+
+    x1: f32 = 0.0,
+    x2: f32 = 0.0,
+    y1: f32 = 0.0,
+    y2: f32 = 0.0,
+
+    pub fn init(
+        _type: Type,
+        frequency: f32,
+        q: f32,
+        gain: f32,
+    ) Self {
+        var self: Self = .{
+            .type = _type,
+            .frequency = frequency,
+            .q = q,
+            .gain = gain,
+        };
+
+        self.calculateCoefficients();
+
+        return self;
+    }
+
+    pub fn next(self: *Self, input: f32) f32 {
+        var output: f32 = 0.0;
+
+        // Calculate the output
+        output = self.a0 * input + self.a1 * self.x1 + self.a2 * self.x2 - self.b1 * self.y1 - self.b2 * self.y2;
+
+        // Update the state
+        self.x2 = self.x1;
+        self.x1 = input;
+        self.y2 = self.y1;
+        self.y1 = output;
+
+        return output;
+    }
+
+    fn calculateCoefficients(self: *Self) void {
+        var omega: f32 = 0.0;
+        var sin_omega: f32 = 0.0;
+        var cos_omega: f32 = 0.0;
+        var alpha: f32 = 0.0;
+
+        omega = std.math.tau * self.frequency / 44100.0;
+        sin_omega = std.math.sin(omega);
+        cos_omega = std.math.cos(omega);
+        alpha = sin_omega;
+
+        switch (self.type) {
+            .lowpass => {
+                self.a0 = (1.0 - cos_omega) / 2.0;
+                self.a1 = 1.0 - cos_omega;
+                self.a2 = (1.0 - cos_omega) / 2.0;
+                self.b1 = -2.0 * cos_omega;
+                self.b2 = 1.0;
+            },
+            .highpass => {
+                self.a0 = (1.0 + cos_omega) / 2.0;
+                self.a1 = -(1.0 + cos_omega);
+                self.a2 = (1.0 + cos_omega) / 2.0;
+                self.b1 = -2.0 * cos_omega;
+                self.b2 = 1.0;
+            },
+            .bandpass => {
+                self.a0 = alpha;
+                self.a1 = 0.0;
+                self.a2 = -alpha;
+                self.b1 = -2.0 * cos_omega;
+                self.b2 = 1.0;
+            },
+            .notch => {
+                self.a0 = 1.0;
+                self.a1 = -2.0 * cos_omega;
+                self.a2 = 1.0;
+                self.b1 = -2.0 * cos_omega;
+                self.b2 = 1.0;
+            },
+            .peak => {
+                self.a0 = 1.0 + alpha * self.gain;
+                self.a1 = -2.0 * cos_omega;
+                self.a2 = 1.0 - alpha * self.gain;
+                self.b1 = -2.0 * cos_omega;
+                self.b2 = 1.0;
+            },
+            .lowshelf => {
+                self.a0 = self.gain * ((self.gain + 1.0) - (self.gain - 1.0) * cos_omega + 2.0 * std.math.sqrt(self.gain) * alpha);
+                self.a1 = 2.0 * self.gain * ((self.gain - 1.0) - (self.gain + 1.0) * cos_omega);
+                self.a2 = self.gain * ((self.gain + 1.0) - (self.gain - 1.0) * cos_omega - 2.0 * std.math.sqrt(self.gain) * alpha);
+                self.b1 = -2.0 * ((self.gain - 1.0) + (self.gain + 1.0) * cos_omega);
+                self.b2 = (self.gain + 1.0) + (self.gain - 1.0) * cos_omega - 2.0 * std.math.sqrt(self.gain) * alpha;
+            },
+            .highshelf => {
+                self.a0 = self.gain * ((self.gain + 1.0) + (self.gain - 1.0) * cos_omega + 2.0 * std.math.sqrt(self.gain) * alpha);
+                self.a1 = -2.0 * self.gain * ((self.gain - 1.0) + (self.gain + 1.0) * cos_omega);
+                self.a2 = self.gain * ((self.gain + 1.0) + (self.gain - 1.0) * cos_omega - 2.0 * std.math.sqrt(self.gain) * alpha);
+                self.b1 = 2.0 * ((self.gain - 1.0) - (self.gain + 1.0) * cos_omega);
+                self.b2 = (self.gain + 1.0) - (self.gain - 1.0) * cos_omega - 2.0 * std.math.sqrt(self.gain) * alpha;
+            },
+        }
+    }
+
+    fn reset(self: *Self) void {
+        self.x1 = 0.0;
+        self.x2 = 0.0;
+        self.y1 = 0.0;
+        self.y2 = 0.0;
+
+        self.calculateCoefficients();
+    }
+
+    fn setFrequency(self: *Self, frequency: f32) void {
+        self.frequency = frequency;
+        self.calculateCoefficients();
+    }
+
+    fn setQ(self: *Self, q: f32) void {
+        self.q = q;
+        self.calculateCoefficients();
+    }
+
+    fn setGain(self: *Self, gain: f32) void {
+        self.gain = gain;
+    }
+
+    fn setType(self: *Self, _type: Type) void {
+        self.type = _type;
+    }
+};
+
 /// A poly BLEP multiple mode oscillator.
 /// Based on this (https://www.martin-finke.de/articles/audio-plugins-018-polyblep-oscillator/).
 const Oscillator = struct {
@@ -115,11 +272,15 @@ const Oscillator = struct {
     }
 
     pub fn next(self: *Self) f32 {
+        // Calculate the phase increment
         self.phase_increment = self.frequency * std.math.tau / 44100.0;
 
+        // Make some temporary variables
         var value: f32 = 0.0;
         var t = self.phase / std.math.tau;
 
+        // Calculate the oscillator value based on the mode
+        // and add the poly BLEP correction if needed
         switch (self.oscillator_mode) {
             .sine => {
                 value = std.math.sin(self.phase);
@@ -144,6 +305,7 @@ const Oscillator = struct {
             },
         }
 
+        // Increment the phase and wrap it around
         self.phase += self.phase_increment;
         if (self.phase >= std.math.tau) {
             self.phase -= std.math.tau;
@@ -152,6 +314,8 @@ const Oscillator = struct {
         return value;
     }
 
+    /// Calculate the poly BLEP correction for the given phase.
+    /// Based on this (https://www.martin-finke.de/articles/audio-plugins-018-polyblep-oscillator/).
     fn polyBlep(self: Self, _t: f32) f32 {
         var dt = self.phase_increment / std.math.tau;
         var t = _t;
@@ -172,8 +336,9 @@ const Oscillator = struct {
 const Synth = struct {
     const Self = @This();
 
-    oscillator: Oscillator,
     adsr: ADSR,
+    oscillator: Oscillator,
+    filter: Filter,
     gain: f32,
 
     pub fn init(
@@ -182,7 +347,8 @@ const Synth = struct {
         return .{
             .oscillator = Oscillator.init(frequency, .saw),
             .adsr = ADSR.init(44100.0),
-            .gain = 0.6,
+            .filter = Filter.init(.lowpass, 1000.0, 1.0, 0.0),
+            .gain = 1.0,
         };
     }
 
@@ -198,7 +364,10 @@ const Synth = struct {
     }
 
     pub fn next(self: *Self) f32 {
-        return self.oscillator.next() * self.adsr.process() * self.gain;
+        const adsr = self.adsr.process();
+        const cutoff = 1000.0 * adsr;
+        self.filter.setFrequency(cutoff);
+        return self.filter.next(self.oscillator.next()) * adsr * self.gain;
     }
 };
 
