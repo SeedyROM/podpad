@@ -27,10 +27,15 @@ const sequencer = struct {
         }
 
         pub fn draw(self: *Pad, pos: Vec2i) !void {
+            const push_up = 2;
+
             self.position = pos;
 
             var rect = .{ .x = pos.x, .y = pos.y, .w = size, .h = size };
             if (self.on) {
+                if (self.active) {
+                    rect.y -= push_up;
+                }
                 try renderer.drawRect(rect, .{ .r = 255, .g = 255, .b = 255 });
             } else {
                 if (self.hovered or self.active) {
@@ -72,7 +77,7 @@ const sequencer = struct {
 
             // Initialize each pad
             for (0..column.pads.len) |i| {
-                var pad = Pad.init(@intCast(i + 45));
+                var pad = Pad.init(@intCast(45 + 16 - i));
                 column.pads[i] = pad;
             }
 
@@ -157,7 +162,7 @@ const sequencer = struct {
         // Update the current column and play the notes
         sequencer.duration += frame_time;
 
-        if (sequencer.duration >= 200.0) {
+        if (sequencer.duration >= 150.0) {
             sequencer.duration = 0.0;
             sequencer.currentColumn += 1;
             if (sequencer.currentColumn >= sequencer.pattern.columns.len) {

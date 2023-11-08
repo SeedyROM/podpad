@@ -4,6 +4,7 @@ const c = @cImport({
     @cInclude("SDL2/SDL_audio.h");
 });
 
+/// A simple ADSR envelope generator.
 const ADSR = struct {
     attack_time: f32,
     decay_time: f32,
@@ -20,10 +21,10 @@ const ADSR = struct {
 
     pub fn init(sample_rate: f32) ADSR {
         return ADSR{
-            .attack_time = 0.01,
+            .attack_time = 0.001,
             .decay_time = 0.1,
             .sustain_level = 0.5,
-            .release_time = 1.0,
+            .release_time = 0.2,
             .sample_rate = sample_rate,
             .state = .off,
             .envelope_value = 0.0,
@@ -84,64 +85,130 @@ const ADSR = struct {
     }
 };
 
-const SineOsc = struct {
-    phase: f32 = 0.0,
-    frequency: f32 = 440.0,
+/// A poly BLEP multiple mode oscillator.
+/// Based on this (https://www.martin-finke.de/articles/audio-plugins-018-polyblep-oscillator/).
+const Oscillator = struct {
+    const Self = @This();
 
-    pub fn init(frequency: f32) SineOsc {
+    /// Each mode for the oscillator.
+    const Mode = enum {
+        sine,
+        square,
+        saw,
+        triangle,
+    };
+
+    phase: f32 = 0.0,
+    phase_increment: f32 = 0.0,
+    frequency: f32 = 440.0,
+    oscillator_mode: Mode = .sine,
+
+    pub fn init(
+        frequency: f32,
+        oscillator_mode: Mode,
+    ) Self {
         return .{
             .phase = 0.0,
             .frequency = frequency,
+            .oscillator_mode = oscillator_mode,
         };
     }
 
-    pub fn next(self: *SineOsc) f32 {
-        defer self.phase += self.frequency / 44100.0;
-        if (self.phase > 1.0) self.phase -= 1.0;
-        return std.math.sin(self.phase * 2.0 * std.math.pi);
+    pub fn next(self: *Self) f32 {
+        self.phase_increment = self.frequency * std.math.tau / 44100.0;
+
+        var value: f32 = 0.0;
+        var t = self.phase / std.math.tau;
+
+        switch (self.oscillator_mode) {
+            .sine => {
+                value = std.math.sin(self.phase);
+            },
+            .square => {
+                if (self.phase < std.math.pi) {
+                    value = 1.0;
+                } else {
+                    value = -1.0;
+                }
+                value += self.polyBlep(t);
+                value -= self.polyBlep(std.math.mod(f32, t + 0.5, 1.0) catch unreachable);
+            },
+            .saw => {
+                value = (2 * self.phase / std.math.tau) - 1.0;
+                value -= self.polyBlep(t);
+            },
+            .triangle => {
+                value = -1.0 + (2.0 * self.phase / std.math.tau);
+                value = 2.0 * (value - std.math.fabs(value) - 0.5);
+                value -= self.polyBlep(t);
+            },
+        }
+
+        self.phase += self.phase_increment;
+        if (self.phase >= std.math.tau) {
+            self.phase -= std.math.tau;
+        }
+
+        return value;
+    }
+
+    fn polyBlep(self: Self, _t: f32) f32 {
+        var dt = self.phase_increment / std.math.tau;
+        var t = _t;
+
+        if (t < dt) {
+            t /= dt;
+            return t + t - t * t - 1.0;
+        } else if (t > 1.0 - dt) {
+            t = (t - 1.0) / dt;
+            return t * t + t + t + 1.0;
+        } else {
+            return 0.0;
+        }
     }
 };
 
-const SineSynth = struct {
-    oscillator: SineOsc,
+/// The synth for this project
+const Synth = struct {
+    const Self = @This();
+
+    oscillator: Oscillator,
     adsr: ADSR,
     gain: f32,
 
     pub fn init(
         frequency: f32,
-    ) SineSynth {
+    ) Self {
         return .{
-            .oscillator = SineOsc{
-                .phase = 0.0,
-                .frequency = frequency,
-            },
+            .oscillator = Oscillator.init(frequency, .saw),
             .adsr = ADSR.init(44100.0),
             .gain = 0.6,
         };
     }
 
-    pub fn noteOn(self: *SineSynth, note: i32) void {
+    pub fn noteOn(self: *Self, note: i32) void {
         self.oscillator.frequency = midiNoteToPitch(note);
         self.adsr.noteOn();
 
-        std.debug.print("Note on: {} ({d})\n", .{ note, self.oscillator.frequency });
+        std.log.debug("Note on: {} ({d})", .{ note, self.oscillator.frequency });
     }
 
-    pub fn noteOff(self: *SineSynth) void {
+    pub fn noteOff(self: *Self) void {
         self.adsr.noteOff();
     }
 
-    pub fn next(self: *SineSynth) f32 {
+    pub fn next(self: *Self) f32 {
         return self.oscillator.next() * self.adsr.process() * self.gain;
     }
 };
 
+/// State of the audio system.
 const State = struct {
-    synth: SineSynth,
+    synth: Synth,
 
     pub fn init() State {
         return .{
-            .synth = SineSynth.init(440.0),
+            .synth = Synth.init(440.0),
         };
     }
 };
