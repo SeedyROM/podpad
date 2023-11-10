@@ -441,7 +441,15 @@ fn callback(userdata: ?*anyopaque, stream: [*c]u8, len: c_int) void {
     // Write the audio samples to the stereo buffer
 
     while (buffer.len > 0) {
-        const x = state.synth.next();
+        var x = state.synth.next();
+
+        // Clip the output to 0.3 for everyone's ears
+        if (x >= 0.3) {
+            x = 0.3;
+        } else if (x <= -0.3) {
+            x = -0.3;
+        }
+
         buffer[0] = x;
         buffer[1] = x;
         buffer = buffer[2..];
