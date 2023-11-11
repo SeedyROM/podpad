@@ -162,7 +162,7 @@ const sequencer = struct {
         // Update the current column and play the notes
         sequencer.duration += frame_time;
 
-        if (sequencer.duration >= 150.0) {
+        if (sequencer.duration >= 120.0) {
             sequencer.duration = 0.0;
             sequencer.currentColumn += 1;
             if (sequencer.currentColumn >= sequencer.pattern.columns.len) {
