@@ -1,6 +1,10 @@
-# podpad
+# podpad 🎛️
 
 podpad is a simple synthesizer and sequencer built with Zig and SDL2 (SDL3 soon).
+
+## Example
+
+https://github.com/SeedyROM/podpad/assets/11783357/dc4e7e01-ceb8-4fe2-a476-bbc7043e05d2
 
 ## Building
 
