@@ -21,7 +21,7 @@ const ADSR = struct {
 
     pub fn init(sample_rate: f32) ADSR {
         return ADSR{
-            .attack_time = 0.001,
+            .attack_time = 0.2,
             .decay_time = 0.1,
             .sustain_level = 0.5,
             .release_time = 0.2,
@@ -85,6 +85,192 @@ const ADSR = struct {
     }
 };
 
+/// Implements a state variable filter with the bilinear transform.
+pub const Filter = struct {
+    const Self = @This();
+
+    const Type = enum {
+        lowpass,
+        highpass,
+        bandpass,
+        notch,
+        peak,
+        lowshelf,
+        highshelf,
+    };
+
+    const FilterState = struct {
+        x1: f32,
+        x2: f32,
+        y1: f32,
+        y2: f32,
+
+        pub fn init() FilterState {
+            return .{
+                .x1 = 0.0,
+                .x2 = 0.0,
+                .y1 = 0.0,
+                .y2 = 0.0,
+            };
+        }
+
+        pub fn reset(self: *FilterState) void {
+            self.x1 = 0.0;
+            self.x2 = 0.0;
+            self.y1 = 0.0;
+            self.y2 = 0.0;
+        }
+
+        pub fn next(self: *FilterState, input: f32, coefficients: *Coefficients) f32 {
+            var output = coefficients.a0 * input + coefficients.a1 * self.x1 + coefficients.a2 * self.x2 - coefficients.b1 * self.y1 - coefficients.b2 * self.y2;
+
+            self.x2 = self.x1;
+            self.x1 = input;
+            self.y2 = self.y1;
+            self.y1 = output;
+
+            return output;
+        }
+    };
+
+    const Coefficients = struct {
+        a0: f32,
+        a1: f32,
+        a2: f32,
+        b1: f32,
+        b2: f32,
+
+        pub fn init() Coefficients {
+            return .{
+                .a0 = 0.0,
+                .a1 = 0.0,
+                .a2 = 0.0,
+                .b1 = 0.0,
+                .b2 = 0.0,
+            };
+        }
+
+        pub fn update(self: *Coefficients, kind: Type, frequency: f32, q: f32, gain: f32, sample_rate: f32) void {
+            var w0 = std.math.tau * frequency / sample_rate;
+            var alpha = std.math.sin(w0) / (2.0 * q);
+
+            switch (kind) {
+                .lowpass => {
+                    var a0 = 1.0 + alpha;
+                    self.a0 = (1.0 - std.math.cos(w0)) / a0;
+                    self.a1 = (1.0 - std.math.cos(w0)) / a0 * 2.0;
+                    self.a2 = (1.0 - std.math.cos(w0)) / a0;
+                    self.b1 = (-2.0 * std.math.cos(w0)) / a0;
+                    self.b2 = (1.0 - alpha) / a0;
+                },
+                .highpass => {
+                    var a0 = 1.0 + alpha;
+                    self.a0 = (1.0 + std.math.cos(w0)) / a0;
+                    self.a1 = (-2.0 * (1.0 + std.math.cos(w0))) / a0;
+                    self.a2 = (1.0 + std.math.cos(w0)) / a0;
+                    self.b1 = (-2.0 * std.math.cos(w0)) / a0;
+                    self.b2 = (1.0 - alpha) / a0;
+                },
+                .bandpass => {
+                    var a0 = 1.0 + alpha;
+                    self.a0 = alpha / a0;
+                    self.a1 = 0.0;
+                    self.a2 = -alpha / a0;
+                    self.b1 = (-2.0 * std.math.cos(w0)) / a0;
+                    self.b2 = (1.0 - alpha) / a0;
+                },
+                .notch => {
+                    var a0 = 1.0 + alpha;
+                    self.a0 = 1.0 / a0;
+                    self.a1 = (-2.0 * std.math.cos(w0)) / a0;
+                    self.a2 = 1.0 / a0;
+                    self.b1 = (-2.0 * std.math.cos(w0)) / a0;
+                    self.b2 = (1.0 - alpha) / a0;
+                },
+                .peak => {
+                    var a0 = 1.0 + alpha / q;
+                    self.a0 = (1.0 + alpha * gain) / a0;
+                    self.a1 = (-2.0 * std.math.cos(w0)) / a0;
+                    self.a2 = (1.0 - alpha * gain) / a0;
+                    self.b1 = (-2.0 * std.math.cos(w0)) / a0;
+                    self.b2 = (1.0 - alpha / q) / a0;
+                },
+                .lowshelf => {
+                    var a0 = 1.0 + alpha;
+                    self.a0 = (1.0 + std.math.sqrt(2.0 * gain) * alpha + gain) / a0;
+                    self.a1 = (-2.0 * (gain - 1.0)) / a0;
+                    self.a2 = (1.0 - std.math.sqrt(2.0 * gain) * alpha + gain) / a0;
+                    self.b1 = (-2.0 * std.math.cos(w0)) / a0;
+                    self.b2 = (1.0 - alpha) / a0;
+                },
+                .highshelf => {
+                    var a0 = 1.0 + alpha;
+                    self.a0 = (gain + std.math.sqrt(2.0 * gain) * alpha + 1.0) / a0;
+                    self.a1 = (2.0 * (1.0 - gain)) / a0;
+                    self.a2 = (gain - std.math.sqrt(2.0 * gain) * alpha + 1.0) / a0;
+                    self.b1 = (-2.0 * std.math.cos(w0)) / a0;
+                    self.b2 = (1.0 - alpha) / a0;
+                },
+            }
+        }
+    };
+
+    type: Type = .lowpass,
+    frequency: f32 = 1000.0,
+    q: f32 = 1.0,
+    gain: f32 = 0.0,
+    sample_rate: f32 = 44100.0,
+    coefficients: Coefficients = Coefficients.init(),
+    state: FilterState = FilterState.init(),
+
+    pub fn init(
+        kind: Type,
+        frequency: f32,
+        q: f32,
+        gain: f32,
+    ) Self {
+        var self = Self{
+            .type = kind,
+            .frequency = frequency,
+            .q = q,
+            .gain = gain,
+        };
+
+        self.updateCoefficients();
+
+        return self;
+    }
+
+    pub fn setFrequency(self: *Self, frequency: f32) void {
+        self.frequency = frequency;
+        self.updateCoefficients();
+    }
+
+    pub fn setQ(self: *Self, q: f32) void {
+        self.q = q;
+        self.updateCoefficients();
+    }
+
+    pub fn setGain(self: *Self, gain: f32) void {
+        self.gain = gain;
+        self.updateCoefficients();
+    }
+
+    pub fn setType(self: *Self, kind: Type) void {
+        self.type = kind;
+        self.updateCoefficients();
+    }
+
+    pub fn next(self: *Self, input: f32) f32 {
+        return self.state.next(input, &self.coefficients);
+    }
+
+    fn updateCoefficients(self: *Self) void {
+        self.state.reset();
+        self.coefficients.update(self.type, self.frequency, self.q, self.gain, self.sample_rate);
+    }
+};
+
 /// A poly BLEP multiple mode oscillator.
 /// Based on this (https://www.martin-finke.de/articles/audio-plugins-018-polyblep-oscillator/).
 const Oscillator = struct {
@@ -115,11 +301,15 @@ const Oscillator = struct {
     }
 
     pub fn next(self: *Self) f32 {
+        // Calculate the phase increment
         self.phase_increment = self.frequency * std.math.tau / 44100.0;
 
+        // Make some temporary variables
         var value: f32 = 0.0;
         var t = self.phase / std.math.tau;
 
+        // Calculate the oscillator value based on the mode
+        // and add the poly BLEP correction if needed
         switch (self.oscillator_mode) {
             .sine => {
                 value = std.math.sin(self.phase);
@@ -144,6 +334,7 @@ const Oscillator = struct {
             },
         }
 
+        // Increment the phase and wrap it around
         self.phase += self.phase_increment;
         if (self.phase >= std.math.tau) {
             self.phase -= std.math.tau;
@@ -152,6 +343,8 @@ const Oscillator = struct {
         return value;
     }
 
+    /// Calculate the poly BLEP correction for the given phase.
+    /// Based on this (https://www.martin-finke.de/articles/audio-plugins-018-polyblep-oscillator/).
     fn polyBlep(self: Self, _t: f32) f32 {
         var dt = self.phase_increment / std.math.tau;
         var t = _t;
@@ -172,17 +365,19 @@ const Oscillator = struct {
 const Synth = struct {
     const Self = @This();
 
-    oscillator: Oscillator,
     adsr: ADSR,
+    oscillator: Oscillator,
+    filter: Filter,
     gain: f32,
 
     pub fn init(
         frequency: f32,
     ) Self {
         return .{
-            .oscillator = Oscillator.init(frequency, .saw),
+            .oscillator = Oscillator.init(frequency, .square),
             .adsr = ADSR.init(44100.0),
-            .gain = 0.6,
+            .filter = Filter.init(.bandpass, 1000.0, 1.5, 0.0),
+            .gain = 1.0,
         };
     }
 
@@ -190,7 +385,7 @@ const Synth = struct {
         self.oscillator.frequency = midiNoteToPitch(note);
         self.adsr.noteOn();
 
-        std.log.debug("Note on: {} ({d})", .{ note, self.oscillator.frequency });
+        std.log.scoped(.synth).debug("Note on: {} ({d})", .{ note, self.oscillator.frequency });
     }
 
     pub fn noteOff(self: *Self) void {
@@ -198,7 +393,10 @@ const Synth = struct {
     }
 
     pub fn next(self: *Self) f32 {
-        return self.oscillator.next() * self.adsr.process() * self.gain;
+        const adsr = self.adsr.process();
+        const cutoff = 1000.0 + (10000.0 * adsr);
+        self.filter.setFrequency(cutoff);
+        return self.filter.next(self.oscillator.next()) * adsr * self.gain;
     }
 };
 
@@ -272,7 +470,15 @@ fn callback(userdata: ?*anyopaque, stream: [*c]u8, len: c_int) void {
     // Write the audio samples to the stereo buffer
 
     while (buffer.len > 0) {
-        const x = state.synth.next();
+        var x = state.synth.next();
+
+        // Clip the output to 1.0 for everyone's ears
+        if (x >= 1.0) {
+            x = 1.0;
+        } else if (x <= -1.0) {
+            x = -1.0;
+        }
+
         buffer[0] = x;
         buffer[1] = x;
         buffer = buffer[2..];
