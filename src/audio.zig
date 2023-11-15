@@ -21,10 +21,10 @@ const ADSR = struct {
 
     pub fn init(sample_rate: f32) ADSR {
         return ADSR{
-            .attack_time = 0.2,
+            .attack_time = 0.01,
             .decay_time = 0.1,
-            .sustain_level = 0.5,
-            .release_time = 0.2,
+            .sustain_level = 0.1,
+            .release_time = 0.1,
             .sample_rate = sample_rate,
             .state = .off,
             .envelope_value = 0.0,
@@ -43,7 +43,8 @@ const ADSR = struct {
         self.time_since_note_off = 0.0;
     }
 
-    pub fn process(self: *ADSR) f32 {
+    /// Calculate the next envelope value.
+    pub fn next(self: *ADSR) f32 {
         const sample_increment = 1.0 / self.sample_rate;
 
         switch (self.state) {
@@ -88,6 +89,7 @@ const ADSR = struct {
 /// Implements a state variable filter with the bilinear transform.
 pub const IIRFilter = struct {
     const Self = @This();
+    const iir_filter_log = std.log.scoped(.iir_filter);
 
     const Type = enum {
         lowpass,
@@ -114,6 +116,7 @@ pub const IIRFilter = struct {
             };
         }
 
+        /// Reset the filter state.
         pub fn reset(self: *FilterState) void {
             self.x1 = 0.0;
             self.x2 = 0.0;
@@ -121,6 +124,7 @@ pub const IIRFilter = struct {
             self.y2 = 0.0;
         }
 
+        /// Process the given input sample with the given coefficients.
         pub fn next(self: *FilterState, input: f32, coefficients: *Coefficients) f32 {
             var output = coefficients.a0 * input + coefficients.a1 * self.x1 + coefficients.a2 * self.x2 - coefficients.b1 * self.y1 - coefficients.b2 * self.y2;
 
@@ -150,7 +154,7 @@ pub const IIRFilter = struct {
             };
         }
 
-        /// Update the coefficients for the given filter type.
+        /// Update the coefficients based on the given filter type.
         pub fn update(self: *Coefficients, kind: Type, frequency: f32, q: f32, gain: f32, sample_rate: f32) void {
             var w0 = std.math.tau * frequency / sample_rate;
             var alpha = std.math.sin(w0) / (2.0 * q);
@@ -243,16 +247,51 @@ pub const IIRFilter = struct {
     }
 
     pub fn setFrequency(self: *Self, frequency: f32) void {
-        self.frequency = frequency;
+        // If the frequency is negative, log a warning and set it to 0.0
+        if (frequency < 0.0) {
+            iir_filter_log.debug("Frequency must be positive, given: {}", .{frequency});
+            self.frequency = 0.0;
+        }
+
+        // If the frequency is the same, do nothing
+        if (frequency == self.frequency) {
+            return;
+        }
+
+        // If the freqency is higher than half the sample rate, return half the sample rate
+        if (frequency > self.sample_rate / 2.0) {
+            self.frequency = self.sample_rate / 2.0;
+        } else {
+            self.frequency = frequency;
+        }
+
+        // Update the coefficients
         self.updateCoefficients();
     }
 
     pub fn setQ(self: *Self, q: f32) void {
+        // If the Q is negative, log a warning and set it to 0.0
+        if (q < 0.0) {
+            iir_filter_log.debug("Q must be positive, given: {}", .{q});
+            q = 0.0;
+        }
+
+        // If the Q is the same, do nothing
+        if (q == self.q) {
+            return;
+        }
+
+        // Set the Q
         self.q = q;
         self.updateCoefficients();
     }
 
     pub fn setGain(self: *Self, gain: f32) void {
+        if (self.type != .lowshelf and self.type != .highshelf) {
+            iir_filter_log.debug("Gain can only be set for lowshelf and highshelf filters, given: {}", .{self.type});
+            return;
+        }
+
         self.gain = gain;
         self.updateCoefficients();
     }
@@ -377,7 +416,7 @@ const Synth = struct {
         return .{
             .oscillator = Oscillator.init(frequency, .saw),
             .adsr = ADSR.init(44100.0),
-            .filter = IIRFilter.init(.lowpass, 1000.0, 1.5, 4.0),
+            .filter = IIRFilter.init(.lowpass, 1000.0, 2.5, 1.0),
             .gain = 0.4,
         };
     }
@@ -394,10 +433,10 @@ const Synth = struct {
     }
 
     pub fn next(self: *Self) f32 {
-        const adsr = self.adsr.process();
-        const cutoff = 10.0 + (10000.0 * adsr);
+        const adsr = self.adsr.next();
+        const cutoff = (1000.0 * adsr);
         self.filter.setFrequency(cutoff);
-        return self.filter.next(self.oscillator.next() * adsr) * self.gain;
+        return self.filter.next(self.oscillator.next() * 0.5) * self.gain;
     }
 };
 
