@@ -139,14 +139,15 @@ const sequencer = struct {
             var prng = std.rand.DefaultPrng.init(@intCast(std.time.microTimestamp()));
 
             // Initialize each column
-            for (_pattern.columns) |*column| {
-                column.* = try Column.init(); // Assuming Column.init needs an allocator
+            for (0.._pattern.columns.len) |i| {
+                // Initialize the column
+                var column = try Column.init();
+                _pattern.columns[i] = column;
 
                 // Generate a random pad index
                 const randomPadIndex = prng.random().int(u32) % 16;
-
                 // Set a random pad for the column
-                column.*.pads[randomPadIndex].on = true;
+                column.pads[randomPadIndex].on = true;
             }
 
             return _pattern;

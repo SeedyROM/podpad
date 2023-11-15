@@ -172,6 +172,7 @@ pub fn events() ![]WindowEvent {
 
 pub fn deinit() void {
     renderer_log.debug("Destroying renderer", .{});
+    events_arena.deinit();
     c.SDL_DestroyRenderer(_renderer);
     c.SDL_DestroyWindow(window);
     c.SDL_Quit();

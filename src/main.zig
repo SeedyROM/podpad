@@ -9,13 +9,14 @@ var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var gpa_allocator = gpa.allocator();
 
 pub fn main() !void {
-    // Setup the systems
+    // Deinitialize the gpa on exit
+    defer _ = gpa.deinit();
+
+    // Initialize the systems
     try renderer.init(gpa_allocator);
     defer renderer.deinit();
-
     try audio.init(gpa_allocator);
     defer audio.deinit();
-
     try ui.init(gpa_allocator);
     defer ui.deinit();
 
