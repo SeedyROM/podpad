@@ -12,12 +12,12 @@ const ADSR = struct {
     release_time: f32,
     sample_rate: f32,
 
-    state: ADSRState,
+    state: ADSR.State,
     envelope_value: f32,
     time_since_note_on: f32,
     time_since_note_off: f32,
 
-    const ADSRState = enum { attack, decay, sustain, release, off };
+    const State = enum { attack, decay, sustain, release, off };
 
     pub fn init(sample_rate: f32) ADSR {
         return ADSR{

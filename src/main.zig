@@ -55,6 +55,6 @@ pub fn main() !void {
         renderer.present();
 
         // Keep up a steady 60 FPS
-        std.time.sleep(16 * 1_000_000);
+        std.time.sleep(32 * 1_000_000);
     }
 }
