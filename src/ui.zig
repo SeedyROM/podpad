@@ -103,6 +103,7 @@ const sequencer = struct {
     const Pattern = struct {
         columns: []Column,
 
+        /// Initialize an empty pattern
         pub fn init() !Pattern {
             var _pattern = .{
                 .columns = try allocator.alloc(Column, 16),
@@ -112,6 +113,29 @@ const sequencer = struct {
             for (0.._pattern.columns.len) |i| {
                 var column = try Column.init();
                 _pattern.columns[i] = column;
+            }
+
+            return _pattern;
+        }
+
+        /// Initialize a random pattern
+        pub fn initRandom() !Pattern {
+            var _pattern = .{
+                .columns = try allocator.alloc(Column, 16),
+            };
+
+            // Create a prng
+            var prng = std.rand.DefaultPrng.init(@intCast(std.time.microTimestamp()));
+
+            // Initialize each column
+            for (_pattern.columns) |*column| {
+                column.* = try Column.init(); // Assuming Column.init needs an allocator
+
+                // Generate a random pad index
+                const randomPadIndex = prng.random().int(u32) % 16;
+
+                // Set a random pad for the column
+                column.*.pads[randomPadIndex].on = true;
             }
 
             return _pattern;
@@ -142,7 +166,7 @@ const sequencer = struct {
     var currentColumn: usize = 0;
 
     pub fn init() !void {
-        pattern = try Pattern.init();
+        pattern = try Pattern.initRandom();
     }
 
     pub fn deinit() void {
