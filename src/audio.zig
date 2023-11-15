@@ -86,7 +86,7 @@ const ADSR = struct {
 };
 
 /// Implements a state variable filter with the bilinear transform.
-pub const Filter = struct {
+pub const IIRFilter = struct {
     const Self = @This();
 
     const Type = enum {
@@ -150,6 +150,7 @@ pub const Filter = struct {
             };
         }
 
+        /// Update the coefficients for the given filter type.
         pub fn update(self: *Coefficients, kind: Type, frequency: f32, q: f32, gain: f32, sample_rate: f32) void {
             var w0 = std.math.tau * frequency / sample_rate;
             var alpha = std.math.sin(w0) / (2.0 * q);
@@ -266,7 +267,6 @@ pub const Filter = struct {
     }
 
     fn updateCoefficients(self: *Self) void {
-        self.state.reset();
         self.coefficients.update(self.type, self.frequency, self.q, self.gain, self.sample_rate);
     }
 };
@@ -364,20 +364,21 @@ const Oscillator = struct {
 /// The synth for this project
 const Synth = struct {
     const Self = @This();
+    const synth_log = std.log.scoped(.synth);
 
     adsr: ADSR,
     oscillator: Oscillator,
-    filter: Filter,
+    filter: IIRFilter,
     gain: f32,
 
     pub fn init(
         frequency: f32,
     ) Self {
         return .{
-            .oscillator = Oscillator.init(frequency, .square),
+            .oscillator = Oscillator.init(frequency, .saw),
             .adsr = ADSR.init(44100.0),
-            .filter = Filter.init(.bandpass, 1000.0, 1.5, 0.0),
-            .gain = 1.0,
+            .filter = IIRFilter.init(.lowpass, 1000.0, 1.5, 4.0),
+            .gain = 0.4,
         };
     }
 
@@ -385,7 +386,7 @@ const Synth = struct {
         self.oscillator.frequency = midiNoteToPitch(note);
         self.adsr.noteOn();
 
-        std.log.scoped(.synth).debug("Note on: {} ({d})", .{ note, self.oscillator.frequency });
+        synth_log.debug("Note on: {} ({d})", .{ note, self.oscillator.frequency });
     }
 
     pub fn noteOff(self: *Self) void {
@@ -394,9 +395,9 @@ const Synth = struct {
 
     pub fn next(self: *Self) f32 {
         const adsr = self.adsr.process();
-        const cutoff = 1000.0 + (10000.0 * adsr);
+        const cutoff = 10.0 + (10000.0 * adsr);
         self.filter.setFrequency(cutoff);
-        return self.filter.next(self.oscillator.next()) * adsr * self.gain;
+        return self.filter.next(self.oscillator.next() * adsr) * self.gain;
     }
 };
 
@@ -415,16 +416,17 @@ var allocator: std.mem.Allocator = undefined;
 var device: c.SDL_AudioDeviceID = 0;
 var spec: c.SDL_AudioSpec = undefined;
 var _state = State.init();
+const audio_log = std.log.scoped(.audio);
 
 pub fn init(_allocator: std.mem.Allocator) !void {
     allocator = _allocator;
 
-    std.log.debug("Initializing SDL audio subsystem", .{});
+    audio_log.debug("Initializing SDL audio subsystem", .{});
     if (c.SDL_Init(c.SDL_INIT_AUDIO) != 0) {
         return error.SDLInitFailed;
     }
 
-    std.log.debug("Opening audio device", .{});
+    audio_log.debug("Opening audio device", .{});
     spec = c.SDL_AudioSpec{
         .freq = 44100,
         .format = c.AUDIO_F32,
@@ -444,16 +446,16 @@ pub fn init(_allocator: std.mem.Allocator) !void {
         0,
     );
 
-    std.log.debug("Starting audio device", .{});
+    audio_log.debug("Starting audio device", .{});
     c.SDL_PauseAudioDevice(device, 0);
 
-    std.log.debug("Initialized audio", .{});
+    audio_log.debug("Initialized audio", .{});
 }
 
 pub fn deinit() void {
-    std.log.debug("Pausing audio device", .{});
+    audio_log.debug("Pausing audio device", .{});
     c.SDL_PauseAudioDevice(device, 1);
-    std.log.debug("Closing audio device", .{});
+    audio_log.debug("Closing audio device", .{});
     c.SDL_CloseAudioDevice(device);
 }
 

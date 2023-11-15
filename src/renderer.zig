@@ -10,6 +10,17 @@ var events_arena: std.heap.ArenaAllocator = undefined;
 var window: ?*c.SDL_Window = null;
 var _renderer: ?*c.SDL_Renderer = null;
 
+const renderer_log = std.log.scoped(.renderer);
+
+pub const Timer = packed struct {
+    start: u64 = 0,
+    end: u64 = 0,
+
+    pub fn start() void {
+        start = now();
+    }
+};
+
 pub const Color = packed struct {
     r: u8 = 0,
     g: u8 = 0,
@@ -59,14 +70,14 @@ pub fn init(_allocator: std.mem.Allocator) !void {
     allocator = _allocator;
     events_arena = std.heap.ArenaAllocator.init(allocator);
 
-    std.log.debug("Initializing the renderer", .{});
+    renderer_log.debug("Initializing the renderer", .{});
 
-    std.log.debug("Initializing SDL video subsystem", .{});
+    renderer_log.debug("Initializing SDL video subsystem", .{});
     if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
         return error.SDLInitFailed;
     }
 
-    std.log.debug("Creating SDL_Window", .{});
+    renderer_log.debug("Creating SDL_Window", .{});
     window = c.SDL_CreateWindow(
         "<::- podpad -::>",
         c.SDL_WINDOWPOS_CENTERED,
@@ -76,22 +87,22 @@ pub fn init(_allocator: std.mem.Allocator) !void {
         c.SDL_WINDOW_SHOWN,
     );
     if (window == null) {
-        std.log.err("SDL_CreateWindow failed: {s}\n", .{c.SDL_GetError()});
+        renderer_log.err("SDL_CreateWindow failed: {s}\n", .{c.SDL_GetError()});
         return error.SDLCreateWindowFailed;
     }
 
-    std.log.debug("Creating SDL_Renderer", .{});
+    renderer_log.debug("Creating SDL_Renderer", .{});
     _renderer = c.SDL_CreateRenderer(
         window,
         -1,
         c.SDL_RENDERER_ACCELERATED | c.SDL_RENDERER_PRESENTVSYNC,
     );
     if (_renderer == null) {
-        std.log.err("SDL_CreateRenderer failed: {s}\n", .{c.SDL_GetError()});
+        renderer_log.err("SDL_CreateRenderer failed: {s}\n", .{c.SDL_GetError()});
         return error.SDLCreateRendererFailed;
     }
 
-    std.log.debug("Intiialized renderer", .{});
+    renderer_log.debug("Intiialized renderer", .{});
 }
 
 pub fn events() ![]WindowEvent {
@@ -153,7 +164,7 @@ pub fn events() ![]WindowEvent {
 }
 
 pub fn deinit() void {
-    std.log.debug("Destroying renderer", .{});
+    renderer_log.debug("Destroying renderer", .{});
     c.SDL_DestroyRenderer(_renderer);
     c.SDL_DestroyWindow(window);
     c.SDL_Quit();
