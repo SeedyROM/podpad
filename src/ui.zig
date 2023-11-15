@@ -1,3 +1,13 @@
+///
+/// # The UI system for the sequencer
+///
+/// The UI system is responsible for drawing the sequencer and handling user input.
+///
+/// ## The Sequencer
+///
+/// The sequencer is a 16x16 grid of pads. Each pad represents a note in the C Major scale.
+///
+///
 const std = @import("std");
 
 const audio = @import("audio.zig");
@@ -6,6 +16,7 @@ const Vec2i = renderer.Vec2i;
 
 var allocator: std.mem.Allocator = undefined;
 
+/// The sequencer in our application
 const sequencer = struct {
     const Pad = struct {
         on: bool = false,
@@ -224,6 +235,7 @@ const sequencer = struct {
     }
 };
 
+/// The transport controls for the project
 const transport = struct {
     const State = enum(u8) {
         Stopped,

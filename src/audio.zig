@@ -1,3 +1,14 @@
+///
+/// # The audio system for podpad.
+///
+/// This system uses SDL2 to open an audio device and write audio samples to it.
+///
+/// It contains:
+/// - A simple ADSR envelope generator.
+/// - A poly BLEP multiple mode oscillator.
+/// - A state variable IIR filter using the bilinear transform.
+/// - A simple synth that uses the above components.
+///
 const std = @import("std");
 const c = @cImport({
     @cInclude("SDL2/SDL.h");

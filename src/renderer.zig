@@ -1,3 +1,10 @@
+///
+/// # The rendering system for podpad.
+///
+/// This module is responsible for rendering the game to the screen.
+///
+/// It uses SDL2 to render the application.
+///
 const std = @import("std");
 const c = @cImport({
     @cInclude("SDL2/SDL.h");
