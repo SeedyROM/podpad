@@ -26,6 +26,11 @@ pub fn main() !void {
     var running = true;
     var current_frame: u64 = 0;
     var last_frame: u64 = 0;
+    var is_mouse_down = false;
+
+    // Test UI state
+    var filter_frequency: f32 = 440.0;
+    var button_active = false;
 
     // While we're still rendering...
     while (running) {
@@ -35,7 +40,7 @@ pub fn main() !void {
         var delta = renderer.getDeltaTime(current_frame, last_frame);
 
         // Mouse state
-        var is_mouse_down: bool = false;
+        var is_mouse_clicked: bool = false;
 
         // Handle events
         for (try renderer.events()) |event| {
@@ -43,9 +48,11 @@ pub fn main() !void {
                 .quit => running = false,
                 .mouse_down => {
                     is_mouse_down = true;
+                    is_mouse_clicked = true;
                 },
                 .mouse_up => {
                     is_mouse_down = false;
+                    is_mouse_clicked = false;
                 },
                 .mouse_motion => |mouse_motion| {
                     mouse_position = .{ .x = mouse_motion.x, .y = mouse_motion.y };
@@ -53,12 +60,25 @@ pub fn main() !void {
             }
         }
 
-        // Update the UI
-        try ui.update(mouse_position, is_mouse_down, delta);
+        // Update the UI state
+        ui.update(mouse_position, is_mouse_down, is_mouse_clicked, delta);
 
         // Draw the UI
         try renderer.clear(clear_color);
-        try ui.render();
+
+        try ui.slider(&filter_frequency, .{
+            .min = 0.0,
+            .max = 1000.0,
+            .pos = .{ .x = 16, .y = 16 },
+        });
+
+        if (try ui.button(&button_active, .{
+            .pos = .{ .x = 16, .y = 48 },
+            .size = .{ .x = 16, .y = 16 },
+        })) {
+            button_active = !button_active;
+        }
+
         renderer.present();
 
         // Keep up a steady 60 FPS
