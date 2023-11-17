@@ -1,24 +1,33 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const audio = @import("audio.zig");
 const renderer = @import("renderer.zig");
 const ui = @import("ui.zig");
-const sequencer = @import("sequencer.zig");
+const sequencer = @import("ui/sequencer.zig");
+
 const Vec2i = renderer.Vec2i;
 
+// Create the GPA allocator for the debug build
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-var gpa_allocator = gpa.allocator();
+// Use the GPA for debug builds and the C allocator for release builds
+const allocator = if (builtin.mode == .Debug) gpa.allocator() else std.heap.c_allocator;
 
 pub fn main() !void {
-    // Deinitialize the gpa on exit
-    defer _ = gpa.deinit();
+    // Debug memory leaks in debug mode
+    defer {
+        if (builtin.mode == .Debug) {
+            std.log.warn("Checking memory leaks from GPA in debug build.\n", .{});
+            _ = gpa.deinit();
+        }
+    }
 
     // Initialize the systems
-    try renderer.init(gpa_allocator);
+    try renderer.init(allocator);
     defer renderer.deinit();
-    try audio.init(gpa_allocator);
+    try audio.init(allocator);
     defer audio.deinit();
-    try ui.init(gpa_allocator);
+    try ui.init(allocator);
     defer ui.deinit();
 
     // Create some application state

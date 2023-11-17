@@ -9,9 +9,9 @@
 ///
 const std = @import("std");
 
-const ui = @import("ui.zig");
-const audio = @import("audio.zig");
-const renderer = @import("renderer.zig");
+const ui = @import("../ui.zig");
+const audio = @import("../audio.zig");
+const renderer = @import("../renderer.zig");
 
 const Vec2i = renderer.Vec2i;
 const Rect = renderer.Rect;
