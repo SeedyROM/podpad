@@ -546,6 +546,10 @@ pub fn setFilterFrequency(frequency: f32) void {
     _state.synth.base_frequency = frequency;
 }
 
+pub fn setAttackTime(time: f32) void {
+    _state.synth.adsr.attack_time = time;
+}
+
 pub fn noteOn(note: i32) void {
     _state.synth.noteOn(note);
 }

@@ -30,8 +30,7 @@ pub fn main() !void {
 
     // Test UI state
     var filter_frequency: f32 = 440.0;
-    var button_active = false;
-    _ = button_active;
+    var attack_time: f32 = 0.1;
 
     // Setup the sequencer
     try ui.sequencer.init();
@@ -74,12 +73,24 @@ pub fn main() !void {
         try renderer.clear(clear_color);
 
         // Draw the filter control
+        const normalized_frequency = filter_frequency / 4000.0;
+        const slider_color: u8 = @intFromFloat(150 + (normalized_frequency * 105));
         try ui.slider(&filter_frequency, .{
             .min = 60.0,
             .max = 4000.0,
             .pos = .{ .x = 16, .y = 16 },
+            .colors = .{ .foreground = .{ .r = slider_color, .g = slider_color, .b = slider_color } },
         });
         audio.setFilterFrequency(filter_frequency);
+
+        // Draw the attack control
+        try ui.slider(&attack_time, .{
+            .min = 0.001,
+            .max = 0.5,
+            .pos = .{ .x = 32 + 128, .y = 16 },
+            .colors = .{ .foreground = .{ .r = @intFromFloat(64 + (attack_time * 255 - 64)), .g = 128, .b = 255 } },
+        });
+        audio.setAttackTime(attack_time);
 
         // Draw the sequencer
         try ui.sequencer.draw(.{ .x = 16, .y = 48 });
