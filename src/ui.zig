@@ -415,20 +415,3 @@ pub const sequencer = struct {
         try pattern.draw(pos);
     }
 };
-
-// pub fn init(_allocator: std.mem.Allocator) !void {
-//     allocator = _allocator;
-//     try sequencer.init();
-// }
-
-// pub fn deinit() void {
-//     sequencer.deinit();
-// }
-
-// pub fn update(mouse_position: Vec2i, is_mouse_down: bool, delta: f32) !void {
-//     sequencer.update(mouse_position, is_mouse_down, delta);
-// }
-
-// pub fn render() !void {
-//     try sequencer.draw(.{ .x = 16, .y = 16 });
-// }
