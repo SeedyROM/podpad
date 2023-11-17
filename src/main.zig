@@ -3,6 +3,7 @@ const std = @import("std");
 const audio = @import("audio.zig");
 const renderer = @import("renderer.zig");
 const ui = @import("ui.zig");
+const sequencer = @import("sequencer.zig");
 const Vec2i = renderer.Vec2i;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -33,8 +34,8 @@ pub fn main() !void {
     var attack_time: f32 = 0.1;
 
     // Setup the sequencer
-    try ui.sequencer.init();
-    defer ui.sequencer.deinit();
+    try sequencer.init();
+    defer sequencer.deinit();
 
     // While we're still rendering...
     while (running) {
@@ -67,7 +68,7 @@ pub fn main() !void {
         // Update the UI state
         ui.update(mouse_position, is_mouse_down, is_mouse_clicked, delta);
         // Update the sequencer
-        ui.sequencer.update();
+        sequencer.update();
 
         // Draw the UI
         try renderer.clear(clear_color);
@@ -93,7 +94,7 @@ pub fn main() !void {
         audio.setAttackTime(attack_time);
 
         // Draw the sequencer
-        try ui.sequencer.draw(.{ .x = 16, .y = 48 });
+        try sequencer.draw(.{ .x = 16, .y = 48 });
 
         // Present the frame
         renderer.present();
