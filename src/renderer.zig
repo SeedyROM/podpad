@@ -90,7 +90,7 @@ pub fn init(_allocator: std.mem.Allocator) !void {
         c.SDL_WINDOWPOS_CENTERED,
         c.SDL_WINDOWPOS_CENTERED,
         408,
-        408,
+        408 + 32,
         c.SDL_WINDOW_SHOWN,
     );
     if (window == null) {
