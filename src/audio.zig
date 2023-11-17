@@ -420,6 +420,7 @@ const Synth = struct {
     oscillator: Oscillator,
     filter: IIRFilter,
     gain: f32,
+    base_frequency: f32 = 440.0,
 
     pub fn init(
         frequency: f32,
@@ -445,7 +446,7 @@ const Synth = struct {
 
     pub fn next(self: *Self) f32 {
         const adsr = self.adsr.next();
-        const cutoff = (1000.0 * adsr);
+        const cutoff = 10 + (self.base_frequency * adsr);
         self.filter.setFrequency(cutoff);
         return self.filter.next(self.oscillator.next() * 0.5) * self.gain;
     }
@@ -539,6 +540,10 @@ fn callback(userdata: ?*anyopaque, stream: [*c]u8, len: c_int) void {
 
 pub fn setFrequency(frequency: f32) void {
     _state.synth.oscillator.frequency = frequency;
+}
+
+pub fn setFilterFrequency(frequency: f32) void {
+    _state.synth.base_frequency = frequency;
 }
 
 pub fn noteOn(note: i32) void {

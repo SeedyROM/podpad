@@ -31,6 +31,11 @@ pub fn main() !void {
     // Test UI state
     var filter_frequency: f32 = 440.0;
     var button_active = false;
+    _ = button_active;
+
+    // Setup the sequencer
+    try ui.sequencer.init();
+    defer ui.sequencer.deinit();
 
     // While we're still rendering...
     while (running) {
@@ -62,23 +67,24 @@ pub fn main() !void {
 
         // Update the UI state
         ui.update(mouse_position, is_mouse_down, is_mouse_clicked, delta);
+        // Update the sequencer
+        ui.sequencer.update();
 
         // Draw the UI
         try renderer.clear(clear_color);
 
+        // Draw the filter control
         try ui.slider(&filter_frequency, .{
-            .min = 0.0,
-            .max = 1000.0,
+            .min = 60.0,
+            .max = 4000.0,
             .pos = .{ .x = 16, .y = 16 },
         });
+        audio.setFilterFrequency(filter_frequency);
 
-        if (try ui.button(&button_active, .{
-            .pos = .{ .x = 16, .y = 48 },
-            .size = .{ .x = 16, .y = 16 },
-        })) {
-            button_active = !button_active;
-        }
+        // Draw the sequencer
+        try ui.sequencer.draw(.{ .x = 16, .y = 48 });
 
+        // Present the frame
         renderer.present();
 
         // Keep up a steady 60 FPS
