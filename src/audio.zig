@@ -89,11 +89,11 @@ fn callback(userdata: ?*anyopaque, stream: [*c]u8, len: c_int) void {
     // Write the audio samples to the stereo buffer
 
     while (buffer.len > 0) {
-        var x = state.synth.next();
-        x = util.softClip(x, 0.5);
+        var x = state.synth.next() * 0.2;
+        x = util.softClip(x, 0.85);
 
-        buffer[0] = x / 2.0;
-        buffer[1] = x / 2.0;
+        buffer[0] = x;
+        buffer[1] = x;
         buffer = buffer[2..];
     }
 }

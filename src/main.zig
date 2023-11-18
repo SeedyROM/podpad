@@ -100,10 +100,19 @@ pub fn main() !void {
         try ui.slider(&attack_time, .{
             .min = 0.001,
             .max = 0.5,
-            .pos = .{ .x = 32 + 128, .y = 16 },
+            .pos = .{ .x = 8 + 128, .y = 16 },
+            .size = .{ .x = 136, .y = 16 },
             .colors = .{ .foreground = .{ .r = @intFromFloat(64 + (attack_time * 255 - 64)), .g = 128, .b = 255 } },
         });
         audio.setAttackTime(attack_time);
+
+        // Draw the speed of the sequencer
+        try ui.slider(&sequencer.speed, .{
+            .min = 30.0,
+            .max = 400.0,
+            .pos = .{ .x = 24 + 128 + 128, .y = 16 },
+            .colors = .{ .foreground = .{ .r = 255, .g = 128, .b = 64 } },
+        });
 
         // Draw the sequencer
         try sequencer.draw(.{ .x = 16, .y = 48 });

@@ -155,9 +155,10 @@ const Pattern = struct {
     }
 };
 
-var pattern: Pattern = undefined;
-var duration: f32 = 0.0;
-var currentColumn: usize = 0;
+pub var pattern: Pattern = undefined;
+pub var duration: f32 = 0.0;
+pub var currentColumn: usize = 0;
+pub var speed: f32 = 300.0;
 
 pub fn init() !void {
     pattern = try Pattern.initRandom();
@@ -171,7 +172,7 @@ pub fn update() void {
     // Update the current column and play the notes
     duration += ui.frame_time;
 
-    if (duration >= 300.0) {
+    if (duration >= speed) {
         duration = 0.0;
         currentColumn += 1;
         if (currentColumn >= pattern.columns.len) {

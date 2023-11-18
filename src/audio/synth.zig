@@ -39,7 +39,7 @@ pub fn init(
         .filter_adsr = filter_adsr,
         .amp_adsr = amp_adsr,
         .filter = IIRFilter.init(.lowpass, 1000.0, 2.5, 1.0),
-        .gain = 0.4,
+        .gain = 1.0,
     };
 }
 
@@ -62,9 +62,9 @@ pub fn next(self: *Self) f32 {
     const cutoff = 120 + (self.base_frequency * filter_adsr);
     self.filter.setFrequency(cutoff);
 
-    // Filter the signal of the oscillator, then apply the ADSR envelope and gain
-    const output = self.filter.next(self.oscillator.next()) * self.amp_adsr.next() * self.gain;
+    // Next oscillator sample, apply DC blocker
+    var osc_sample = self.dc_blocker.next(self.oscillator.next());
 
-    // Return the output after passing it through the DC blocker
-    return self.dc_blocker.next(output);
+    // Filter the signal of the oscillator, then apply the ADSR envelope and gain
+    return self.filter.next(osc_sample) * self.amp_adsr.next() * self.gain;
 }

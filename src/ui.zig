@@ -123,7 +123,7 @@ pub const slider_opts = struct {
         vertical,
     } = .horizontal,
     pos: Vec2i = .{ .x = 0, .y = 0 },
-    size: Vec2i = .{ .x = 128, .y = 16 },
+    size: Vec2i = .{ .x = 112, .y = 16 },
     min: f32 = 0.0,
     max: f32 = 1.0,
     step: f32 = 0.0,
