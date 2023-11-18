@@ -146,7 +146,7 @@ pub fn coloredLogFn(
     comptime format: []const u8,
     args: anytype,
 ) void {
-    const scope_prefix = "(" ++ @tagName(scope) ++ "): ";
+    const scope_prefix = if (scope == .default) ": " else "(" ++ @tagName(scope) ++ "): ";
     const prefix = "[" ++ comptime coloredLogLevel(level) ++ "] " ++ scope_prefix;
 
     // Print the message to stderr, silently ignoring any errors
