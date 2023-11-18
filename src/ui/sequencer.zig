@@ -48,8 +48,8 @@ const Pad = struct {
                     .hovered = .{ .r = 128, .g = 128, .b = 128 },
                     .active = .{ .r = 255, .g = 255, .b = 255 },
                 },
-                .active = &self.on,
-                .hovered = &self.active,
+                .active = self.on,
+                .hovered = self.active,
             },
         )) {
             self.on = !self.on;
