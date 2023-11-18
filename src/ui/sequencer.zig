@@ -117,8 +117,9 @@ const Pattern = struct {
         // Create a prng
         var prng = std.rand.DefaultPrng.init(@intCast(std.time.microTimestamp()));
 
-        // Initialize each column
+        // Initialize every 4th column
         for (0.._pattern.columns.len) |i| {
+
             // Initialize the column
             var column = try Column.init();
             _pattern.columns[i] = column;
@@ -126,7 +127,9 @@ const Pattern = struct {
             // Generate a random pad index
             const randomPadIndex = prng.random().int(u32) % 16;
             // Set a random pad for the column
-            column.pads[randomPadIndex].on = true;
+            if (i % 4 != 0) {
+                column.pads[randomPadIndex].on = true;
+            }
         }
 
         return _pattern;
@@ -168,7 +171,7 @@ pub fn update() void {
     // Update the current column and play the notes
     duration += ui.frame_time;
 
-    if (duration >= 120.0) {
+    if (duration >= 300.0) {
         duration = 0.0;
         currentColumn += 1;
         if (currentColumn >= pattern.columns.len) {
@@ -185,8 +188,10 @@ pub fn update() void {
         var last_column = &pattern.columns[last_column_index];
         for (0..last_column.pads.len) |i| {
             var pad = &last_column.pads[i];
+            if (pad.on) {
+                audio.noteOff();
+            }
             pad.active = false;
-            audio.noteOff();
         }
 
         // Set the current column's pads to active and play the notes

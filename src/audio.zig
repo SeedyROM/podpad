@@ -35,7 +35,7 @@ const ADSR = struct {
             .attack_time = 0.01,
             .decay_time = 0.1,
             .sustain_level = 0.1,
-            .release_time = 0.1,
+            .release_time = 0.3,
             .sample_rate = sample_rate,
             .state = .off,
             .envelope_value = 0.0,
@@ -321,6 +321,28 @@ pub const IIRFilter = struct {
     }
 };
 
+/// A DC blocking filter.
+const DCBlocker = struct {
+    const Self = @This();
+
+    x1: f32 = 0.0,
+    y1: f32 = 0.0,
+
+    pub fn init() Self {
+        return .{
+            .x1 = 0.0,
+            .y1 = 0.0,
+        };
+    }
+
+    pub fn next(self: *Self, input: f32) f32 {
+        var output = input - self.x1 + 0.995 * self.y1;
+        self.x1 = input;
+        self.y1 = output;
+        return output;
+    }
+};
+
 /// A poly BLEP multiple mode oscillator.
 /// Based on this (https://www.martin-finke.de/articles/audio-plugins-018-polyblep-oscillator/).
 const Oscillator = struct {
@@ -395,7 +417,7 @@ const Oscillator = struct {
 
     /// Calculate the poly BLEP correction for the given phase.
     /// Based on this (https://www.martin-finke.de/articles/audio-plugins-018-polyblep-oscillator/).
-    fn polyBlep(self: Self, _t: f32) f32 {
+    inline fn polyBlep(self: Self, _t: f32) f32 {
         var dt = self.phase_increment / std.math.tau;
         var t = _t;
 
@@ -416,18 +438,33 @@ const Synth = struct {
     const Self = @This();
     const synth_log = std.log.scoped(.synth);
 
-    adsr: ADSR,
+    filter_adsr: ADSR,
+    amp_adsr: ADSR,
     oscillator: Oscillator,
     filter: IIRFilter,
     gain: f32,
     base_frequency: f32 = 440.0,
+    dc_blocker: DCBlocker = DCBlocker.init(),
 
     pub fn init(
         frequency: f32,
     ) Self {
+        var amp_adsr = ADSR.init(44100.0);
+        amp_adsr.attack_time = 0.01;
+        amp_adsr.decay_time = 1.0;
+        amp_adsr.sustain_level = 1.0;
+        amp_adsr.release_time = 0.3;
+
+        var filter_adsr = ADSR.init(44100.0);
+        filter_adsr.attack_time = 0.01;
+        filter_adsr.decay_time = 0.1;
+        filter_adsr.sustain_level = 0.1;
+        filter_adsr.release_time = 0.3;
+
         return .{
             .oscillator = Oscillator.init(frequency, .saw),
-            .adsr = ADSR.init(44100.0),
+            .filter_adsr = filter_adsr,
+            .amp_adsr = amp_adsr,
             .filter = IIRFilter.init(.lowpass, 1000.0, 2.5, 1.0),
             .gain = 0.4,
         };
@@ -435,20 +472,27 @@ const Synth = struct {
 
     pub fn noteOn(self: *Self, note: i32) void {
         self.oscillator.frequency = midiNoteToPitch(note);
-        self.adsr.noteOn();
+        self.filter_adsr.noteOn();
+        self.amp_adsr.noteOn();
 
         synth_log.debug("Note on: {} ({d})", .{ note, self.oscillator.frequency });
     }
 
     pub fn noteOff(self: *Self) void {
-        self.adsr.noteOff();
+        self.amp_adsr.noteOff();
+        self.filter_adsr.noteOff();
     }
 
     pub fn next(self: *Self) f32 {
-        const adsr = self.adsr.next();
-        const cutoff = 10 + (self.base_frequency * adsr);
+        const filter_adsr = self.filter_adsr.next();
+        const cutoff = 120 + (self.base_frequency * filter_adsr);
         self.filter.setFrequency(cutoff);
-        return self.filter.next(self.oscillator.next() * 0.5) * self.gain;
+
+        // Filter the signal of the oscillator, then apply the ADSR envelope and gain
+        const output = self.filter.next(self.oscillator.next()) * self.amp_adsr.next() * self.gain;
+
+        // Return the output after passing it through the DC blocker
+        return self.dc_blocker.next(output);
     }
 };
 
@@ -510,6 +554,17 @@ pub fn deinit() void {
     c.SDL_CloseAudioDevice(device);
 }
 
+/// Soft clip the given input with the given threshold.
+pub fn softClip(input: f32, threshold: f32) f32 {
+    if (input > threshold) {
+        return threshold + (1 - std.math.exp(-input + threshold));
+    } else if (input < -threshold) {
+        return -threshold - (1 - std.math.exp(input + threshold));
+    } else {
+        return input;
+    }
+}
+
 fn callback(userdata: ?*anyopaque, stream: [*c]u8, len: c_int) void {
     // Get the audio system state.
     if (userdata == null) return;
@@ -524,16 +579,10 @@ fn callback(userdata: ?*anyopaque, stream: [*c]u8, len: c_int) void {
 
     while (buffer.len > 0) {
         var x = state.synth.next();
+        x = softClip(x, 0.5);
 
-        // Clip the output to 1.0 for everyone's ears
-        if (x >= 1.0) {
-            x = 1.0;
-        } else if (x <= -1.0) {
-            x = -1.0;
-        }
-
-        buffer[0] = x;
-        buffer[1] = x;
+        buffer[0] = x / 2.0;
+        buffer[1] = x / 2.0;
         buffer = buffer[2..];
     }
 }
@@ -547,7 +596,7 @@ pub fn setFilterFrequency(frequency: f32) void {
 }
 
 pub fn setAttackTime(time: f32) void {
-    _state.synth.adsr.attack_time = time;
+    _state.synth.filter_adsr.attack_time = time;
 }
 
 pub fn noteOn(note: i32) void {
