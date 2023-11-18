@@ -1,23 +1,36 @@
+//!
+//! # `podpad` is a simple syntheizer/sequencer!
+//!
 const std = @import("std");
+const builtin = @import("builtin");
 
 const audio = @import("audio.zig");
 const renderer = @import("renderer.zig");
 const ui = @import("ui.zig");
+const sequencer = @import("ui/sequencer.zig");
+
 const Vec2i = renderer.Vec2i;
 
+// Create the GPA allocator for the debug build
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-var gpa_allocator = gpa.allocator();
+// Use the GPA for debug builds and the C allocator for release builds
+const allocator = if (builtin.mode == .Debug) gpa.allocator() else std.heap.c_allocator;
 
 pub fn main() !void {
-    // Deinitialize the gpa on exit
-    defer _ = gpa.deinit();
+    // Debug memory leaks in debug mode
+    defer {
+        if (builtin.mode == .Debug) {
+            std.log.scoped(.program).warn("Checking memory leaks from GPA in debug build...\n", .{});
+            _ = gpa.deinit();
+        }
+    }
 
     // Initialize the systems
-    try renderer.init(gpa_allocator);
+    try renderer.init(allocator);
     defer renderer.deinit();
-    try audio.init(gpa_allocator);
+    try audio.init(allocator);
     defer audio.deinit();
-    try ui.init(gpa_allocator);
+    try ui.init(allocator);
     defer ui.deinit();
 
     // Create some application state
@@ -33,8 +46,8 @@ pub fn main() !void {
     var attack_time: f32 = 0.1;
 
     // Setup the sequencer
-    try ui.sequencer.init();
-    defer ui.sequencer.deinit();
+    try sequencer.init();
+    defer sequencer.deinit();
 
     // While we're still rendering...
     while (running) {
@@ -67,7 +80,7 @@ pub fn main() !void {
         // Update the UI state
         ui.update(mouse_position, is_mouse_down, is_mouse_clicked, delta);
         // Update the sequencer
-        ui.sequencer.update();
+        sequencer.update();
 
         // Draw the UI
         try renderer.clear(clear_color);
@@ -93,7 +106,7 @@ pub fn main() !void {
         audio.setAttackTime(attack_time);
 
         // Draw the sequencer
-        try ui.sequencer.draw(.{ .x = 16, .y = 48 });
+        try sequencer.draw(.{ .x = 16, .y = 48 });
 
         // Present the frame
         renderer.present();
@@ -101,4 +114,41 @@ pub fn main() !void {
         // Keep up a steady 60 FPS
         std.time.sleep(32 * 1_000_000);
     }
+}
+
+// Logging setup
+pub const std_options = struct {
+    pub const log_level = if (builtin.mode == .Debug) .debug else .info;
+    pub const logFn = coloredLogFn;
+};
+
+fn coloredLogLevel(level: std.log.Level) []const u8 {
+    // If we're on Windows, don't use ANSI escape codes
+    if (builtin.os.tag == .windows) {
+        return level.asText();
+    }
+
+    // Use ANSI escape codes to color the log level
+    // 256 colors for now... might fuck shit up...
+    const color = switch (level) {
+        .debug => "\x1b[38;5;26m",
+        .info => "\x1b[38;5;106m",
+        .warn => "\x1b[38;5;214m",
+        .err => "\x1b[38;5;160m",
+    };
+
+    return color ++ level.asText() ++ "\x1b[0m";
+}
+
+pub fn coloredLogFn(
+    comptime level: std.log.Level,
+    comptime scope: @TypeOf(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    const scope_prefix = "(" ++ @tagName(scope) ++ "): ";
+    const prefix = "[" ++ comptime coloredLogLevel(level) ++ "] " ++ scope_prefix;
+
+    // Print the message to stderr, silently ignoring any errors
+    std.debug.print(prefix ++ format ++ "\n", args);
 }
