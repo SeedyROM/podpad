@@ -17,3 +17,8 @@ pub fn softClip(input: f32, threshold: f32) f32 {
         return input;
     }
 }
+
+/// Calculate a linear value from dB.
+pub fn dbToLinear(db: f32) f32 {
+    return std.math.pow(f32, 10.0, db / 20.0);
+}
