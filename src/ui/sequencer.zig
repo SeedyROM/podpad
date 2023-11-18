@@ -1,12 +1,8 @@
-///
-/// # Sequencer
-///
-/// The UI system is responsible for drawing the sequencer and handling user input.
-///
-/// ## The Sequencer
-///
-/// The sequencer is a 16x16 grid of pads. Each pad represents a note in the C Major scale.
-///
+//!
+//! # Sequencer
+//!
+//! The sequencer is a 16x16 grid of pads. Each pad represents a note in the C Major scale.
+//!
 const std = @import("std");
 
 const ui = @import("../ui.zig");

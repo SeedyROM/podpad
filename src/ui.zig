@@ -1,9 +1,9 @@
-///
-/// # UI is a simple immediate mode UI library
-///
-/// - [x] Add a slider
-/// - [x] Add a button
-///
+//!
+//! # UI is a simple immediate mode UI library
+//!
+//! - [x] Add a slider
+//! - [x] Add a button
+//!
 const std = @import("std");
 
 const audio = @import("audio.zig");
