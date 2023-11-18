@@ -90,10 +90,10 @@ fn callback(userdata: ?*anyopaque, stream: [*c]u8, len: c_int) void {
 
     while (buffer.len > 0) {
         // Apply a -20dB gain to the output
-        var x = state.synth.next() * util.dbToLinear(-20.0);
+        var x = state.synth.next() * util.dbToLinear(-15);
 
         // Add some soft clip
-        x = util.softClip(x, 0.5);
+        x = util.softClip(x, 1.0);
 
         buffer[0] = x;
         buffer[1] = x;
