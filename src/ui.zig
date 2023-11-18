@@ -34,8 +34,8 @@ pub fn update(mouse_pos: Vec2i, is_down: bool, is_clicked: bool, dt: f32) void {
 }
 
 pub const button_opts = struct {
-    active: *bool = undefined,
-    hovered: *bool = undefined,
+    active: ?*bool = null,
+    hovered: ?*bool = null,
     pos: Vec2i = .{ .x = 0, .y = 0 },
     size: Vec2i = .{ .x = 16, .y = 16 },
     colors: struct {
@@ -89,7 +89,7 @@ pub fn button(opts: button_opts) !bool {
     }
 
     // If hovered is true, draw the button as hovered
-    if ((opts.hovered != undefined and opts.hovered.* == true)) {
+    if ((opts.hovered != null and opts.hovered.?.* == true)) {
         try renderer.drawRect(
             .{
                 .x = opts.pos.x,
@@ -102,7 +102,7 @@ pub fn button(opts: button_opts) !bool {
     }
 
     // If active is true, draw the button as active
-    if ((opts.active != undefined and opts.active.* == true)) {
+    if ((opts.active != null and opts.active.?.* == true)) {
         try renderer.drawRect(
             .{
                 .x = opts.pos.x,
