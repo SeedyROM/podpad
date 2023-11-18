@@ -52,12 +52,12 @@ pub fn next(self: *Self) f32 {
             value -= self.polyBlep(std.math.mod(f32, t + 0.5, 1.0) catch unreachable);
         },
         .saw => {
-            value = (2 * self.phase / std.math.tau) - 1.0;
+            value = (self.phase / std.math.tau) - 1.0;
             value -= self.polyBlep(t);
         },
         .triangle => {
-            value = -1.0 + (2.0 * self.phase / std.math.tau);
-            value = 2.0 * (value - std.math.fabs(value) - 0.5);
+            value = -1.0 + (self.phase / std.math.tau);
+            value = (value - std.math.fabs(value) - 0.5);
             value -= self.polyBlep(t);
         },
     }
