@@ -231,13 +231,13 @@ pub const IIRFilter = struct {
         }
     };
 
-    type: Type = .lowpass,
-    frequency: f32 = 1000.0,
-    q: f32 = 1.0,
-    gain: f32 = 0.0,
-    sample_rate: f32 = 44100.0,
     coefficients: Coefficients = Coefficients.init(),
+    frequency: f32 = 1000.0,
+    gain: f32 = 0.0,
+    q: f32 = 1.0,
+    sample_rate: f32 = 44100.0,
     state: FilterState = FilterState.init(),
+    type: Type = .lowpass,
 
     pub fn init(
         kind: Type,
@@ -356,10 +356,10 @@ const Oscillator = struct {
         triangle,
     };
 
-    phase: f32 = 0.0,
-    phase_increment: f32 = 0.0,
     frequency: f32 = 440.0,
     oscillator_mode: Mode = .sine,
+    phase_increment: f32 = 0.0,
+    phase: f32 = 0.0,
 
     pub fn init(
         frequency: f32,
@@ -438,13 +438,13 @@ const Synth = struct {
     const Self = @This();
     const synth_log = std.log.scoped(.synth);
 
-    filter_adsr: ADSR,
     amp_adsr: ADSR,
-    oscillator: Oscillator,
-    filter: IIRFilter,
-    gain: f32,
     base_frequency: f32 = 440.0,
     dc_blocker: DCBlocker = DCBlocker.init(),
+    filter_adsr: ADSR,
+    filter: IIRFilter,
+    gain: f32,
+    oscillator: Oscillator,
 
     pub fn init(
         frequency: f32,
@@ -484,6 +484,7 @@ const Synth = struct {
     }
 
     pub fn next(self: *Self) f32 {
+        // Calculate the filter cutoff based on the filter ADSR envelope
         const filter_adsr = self.filter_adsr.next();
         const cutoff = 120 + (self.base_frequency * filter_adsr);
         self.filter.setFrequency(cutoff);
