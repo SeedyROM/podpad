@@ -47,6 +47,24 @@ pub const Vec2i = packed struct {
     y: i32 = 0,
 };
 
+pub const KeyCode = enum(c_int) {
+    c = c.SDLK_c,
+    r = c.SDLK_r,
+    space = c.SDLK_SPACE,
+    left = c.SDLK_LEFT,
+
+    pub fn fromSDLKey(key: c.SDL_Keycode) ?KeyCode {
+        return switch (key) {
+            c.SDLK_c => .c,
+            c.SDLK_r => .r,
+            c.SDLK_SPACE => .space,
+            c.SDLK_LEFT => .left,
+            else => null,
+        };
+    }
+};
+
+// Create struct that uses each SDL_Scancode as a field.
 const WindowEvent = union(enum) {
     quit,
     mouse_motion: struct {
@@ -70,6 +88,12 @@ const WindowEvent = union(enum) {
             middle,
             right,
         },
+    },
+    keydown: struct {
+        code: KeyCode,
+    },
+    keyup: struct {
+        code: KeyCode,
     },
 };
 
@@ -145,7 +169,7 @@ pub fn events() ![]WindowEvent {
                         c.SDL_BUTTON_LEFT => .left,
                         c.SDL_BUTTON_MIDDLE => .middle,
                         c.SDL_BUTTON_RIGHT => .right,
-                        else => unreachable,
+                        else => continue,
                     },
                 } });
             },
@@ -158,9 +182,25 @@ pub fn events() ![]WindowEvent {
                         c.SDL_BUTTON_LEFT => .left,
                         c.SDL_BUTTON_MIDDLE => .middle,
                         c.SDL_BUTTON_RIGHT => .right,
-                        else => unreachable,
+                        else => continue,
                     },
                 } });
+            },
+            c.SDL_KEYDOWN => {
+                var key = event.key;
+                try _events.append(.{
+                    .keydown = .{
+                        .code = KeyCode.fromSDLKey(key.keysym.sym) orelse continue,
+                    },
+                });
+            },
+            c.SDL_KEYUP => {
+                var key = event.key;
+                try _events.append(.{
+                    .keyup = .{
+                        .code = KeyCode.fromSDLKey(key.keysym.sym) orelse continue,
+                    },
+                });
             },
             else => {},
         }
