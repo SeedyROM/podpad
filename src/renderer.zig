@@ -10,16 +10,6 @@ const c = @cImport({
     // Include SDL2 headers.
     @cInclude("SDL2/SDL.h");
     @cInclude("SDL2/SDL_audio.h");
-
-    // Include FreeType headers.
-    @cInclude("freetype/ftadvanc.h");
-    @cInclude("freetype/ftbbox.h");
-    @cInclude("freetype/ftbitmap.h");
-    @cInclude("freetype/ftcolor.h");
-    @cInclude("freetype/ftlcdfil.h");
-    @cInclude("freetype/ftsizes.h");
-    @cInclude("freetype/ftstroke.h");
-    @cInclude("freetype/fttrigon.h");
 });
 
 var allocator: std.mem.Allocator = undefined;
@@ -109,16 +99,18 @@ const WindowEvent = union(enum) {
     },
 };
 
+/// Font library.
+pub const Fonts = struct {
+    const Self = @This();
+
+    allocator: std.mem.Allocator,
+};
+
 pub fn init(_allocator: std.mem.Allocator) !void {
     allocator = _allocator;
     events_arena = std.heap.ArenaAllocator.init(allocator);
 
     renderer_log.debug("Initializing the renderer", .{});
-
-    renderer_log.debug("Initializing FreeType", .{});
-    if (c.FT_Init_FreeType(&ft2_lib) != 0) {
-        return error.FTInitFailed;
-    }
 
     renderer_log.debug("Initializing SDL video subsystem", .{});
     if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
@@ -156,11 +148,6 @@ pub fn init(_allocator: std.mem.Allocator) !void {
 pub fn deinit() void {
     renderer_log.debug("Destroying renderer", .{});
     events_arena.deinit();
-
-    // Destroy the FreeType library.
-    if (c.FT_Done_FreeType(ft2_lib) != 0) {
-        renderer_log.err("FT_Done_FreeType failed: {s}\n", .{c.SDL_GetError()});
-    }
 
     // Destroy the renderer and window.
     c.SDL_DestroyRenderer(_renderer);
