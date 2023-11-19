@@ -159,6 +159,7 @@ pub var pattern: Pattern = undefined;
 pub var duration: f32 = 0.0;
 pub var currentColumn: usize = 0;
 pub var speed: f32 = 300.0;
+pub var playing: bool = true;
 
 pub fn init() !void {
     pattern = try Pattern.initRandom();
@@ -168,11 +169,45 @@ pub fn deinit() void {
     pattern.deinit();
 }
 
+pub fn clear() void {
+    std.log.scoped(.sequencer).debug("Clearing sequencer pattern", .{});
+
+    for (0..pattern.columns.len) |i| {
+        var column = &pattern.columns[i];
+        for (0..column.pads.len) |j| {
+            var pad = &column.pads[j];
+            pad.on = false;
+        }
+    }
+
+    audio.noteOff();
+}
+
+pub fn togglePlayback() void {
+    std.log.scoped(.sequencer).debug("Toggling sequencer", .{});
+
+    audio.noteOff();
+    playing = !playing;
+}
+
+pub fn randomize() !void {
+    std.log.scoped(.sequencer).debug("Randomizing sequencer", .{});
+
+    pattern.deinit();
+    pattern = try Pattern.initRandom();
+}
+
+pub fn resetPlayhead() void {
+    std.log.scoped(.sequencer).debug("Setting sequencer to the top", .{});
+
+    currentColumn = 0;
+}
+
 pub fn update() void {
     // Update the current column and play the notes
     duration += ui.frame_time;
 
-    if (duration >= speed) {
+    if (playing and duration >= speed) {
         duration = 0.0;
         currentColumn += 1;
         if (currentColumn >= pattern.columns.len) {

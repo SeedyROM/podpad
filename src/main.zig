@@ -74,6 +74,23 @@ pub fn main() !void {
                 .mouse_motion => |mouse_motion| {
                     mouse_position = .{ .x = mouse_motion.x, .y = mouse_motion.y };
                 },
+                .keydown => |kp| {
+                    switch (kp.code) {
+                        .c => {
+                            sequencer.clear();
+                        },
+                        .space => {
+                            sequencer.togglePlayback();
+                        },
+                        .r => {
+                            try sequencer.randomize();
+                        },
+                        .left => {
+                            sequencer.resetPlayhead();
+                        },
+                    }
+                },
+                else => {},
             }
         }
 
