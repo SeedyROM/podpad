@@ -20,7 +20,7 @@ pub fn main() !void {
     // Debug memory leaks in debug mode
     defer {
         if (builtin.mode == .Debug) {
-            std.log.scoped(.program).warn("Checking memory leaks from GPA in debug build...\n", .{});
+            std.log.scoped(.program).info("Checking memory leaks from GPA in debug build...", .{});
             _ = gpa.deinit();
         }
     }

@@ -7,8 +7,19 @@
 //!
 const std = @import("std");
 const c = @cImport({
+    // Include SDL2 headers.
     @cInclude("SDL2/SDL.h");
     @cInclude("SDL2/SDL_audio.h");
+
+    // Include FreeType headers.
+    @cInclude("freetype/ftadvanc.h");
+    @cInclude("freetype/ftbbox.h");
+    @cInclude("freetype/ftbitmap.h");
+    @cInclude("freetype/ftcolor.h");
+    @cInclude("freetype/ftlcdfil.h");
+    @cInclude("freetype/ftsizes.h");
+    @cInclude("freetype/ftstroke.h");
+    @cInclude("freetype/fttrigon.h");
 });
 
 var allocator: std.mem.Allocator = undefined;
@@ -16,6 +27,7 @@ var events_arena: std.heap.ArenaAllocator = undefined;
 
 var window: ?*c.SDL_Window = null;
 var _renderer: ?*c.SDL_Renderer = null;
+var ft2_lib: c.FT_Library = undefined;
 
 const renderer_log = std.log.scoped(.renderer);
 
@@ -103,6 +115,11 @@ pub fn init(_allocator: std.mem.Allocator) !void {
 
     renderer_log.debug("Initializing the renderer", .{});
 
+    renderer_log.debug("Initializing FreeType", .{});
+    if (c.FT_Init_FreeType(&ft2_lib) != 0) {
+        return error.FTInitFailed;
+    }
+
     renderer_log.debug("Initializing SDL video subsystem", .{});
     if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
         return error.SDLInitFailed;
@@ -134,6 +151,21 @@ pub fn init(_allocator: std.mem.Allocator) !void {
     }
 
     renderer_log.debug("Intiialized renderer", .{});
+}
+
+pub fn deinit() void {
+    renderer_log.debug("Destroying renderer", .{});
+    events_arena.deinit();
+
+    // Destroy the FreeType library.
+    if (c.FT_Done_FreeType(ft2_lib) != 0) {
+        renderer_log.err("FT_Done_FreeType failed: {s}\n", .{c.SDL_GetError()});
+    }
+
+    // Destroy the renderer and window.
+    c.SDL_DestroyRenderer(_renderer);
+    c.SDL_DestroyWindow(window);
+    c.SDL_Quit();
 }
 
 pub fn events() ![]WindowEvent {
@@ -208,14 +240,6 @@ pub fn events() ![]WindowEvent {
 
     // Return the items from the array list.
     return _events.items;
-}
-
-pub fn deinit() void {
-    renderer_log.debug("Destroying renderer", .{});
-    events_arena.deinit();
-    c.SDL_DestroyRenderer(_renderer);
-    c.SDL_DestroyWindow(window);
-    c.SDL_Quit();
 }
 
 pub fn clear(color: Color) !void {
