@@ -47,10 +47,10 @@ pub fn main() !void {
     // var attack_time: f32 = 0.1;
     // _ = attack_time;
 
-    var attack_time: f32 = 0.01;
-    var decay_time: f32 = 0.5;
-    var sustain_level: f32 = 0.01;
-    var release_time: f32 = 0.1;
+    var attack_time: f32 = 0.2;
+    var decay_time: f32 = 0.8;
+    var sustain_level: f32 = 0.5;
+    var release_time: f32 = 0.3;
 
     // Setup the sequencer
     try sequencer.init();
@@ -105,15 +105,20 @@ pub fn main() !void {
         ui.update(mouse_position, is_mouse_down, is_mouse_clicked, delta);
         // Update the sequencer
         sequencer.update();
+        // Set the ADSR
         audio.setADSR(attack_time, decay_time, sustain_level, release_time);
 
         // Draw the UI
         try renderer.clear(clear_color);
 
-        try ui.adsr(&attack_time, &decay_time, &sustain_level, &release_time, .{ .pos = .{ .x = 16, .y = 16 } });
+        try renderer.drawText("default", "FILTER", .{ .x = 16, .y = -4 }, .{ .r = 255, .g = 255, .b = 255 });
+        try ui.adsr(&attack_time, &decay_time, &sustain_level, &release_time, .{ .pos = .{ .x = 16, .y = 32 } });
 
         // Present the frame
         renderer.present();
+
+        // Sleep for 16ms
+        std.time.sleep(64 * 1_000_000);
     }
 }
 

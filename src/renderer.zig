@@ -10,14 +10,10 @@ const c = @cImport({
     // Include SDL2 headers.
     @cInclude("SDL2/SDL.h");
     @cInclude("SDL2/SDL_audio.h");
+
+    // Include Freetype headers.
+    @cInclude("freetype/freetype.h");
 });
-
-var allocator: std.mem.Allocator = undefined;
-var events_arena: std.heap.ArenaAllocator = undefined;
-
-var window: ?*c.SDL_Window = null;
-var _renderer: ?*c.SDL_Renderer = null;
-var ft2_lib: c.FT_Library = undefined;
 
 const renderer_log = std.log.scoped(.renderer);
 
@@ -99,16 +95,122 @@ const WindowEvent = union(enum) {
     },
 };
 
+/// A Freetype font.
+pub const Font = struct {
+    const Self = @This();
+
+    face: c.FT_Face = undefined,
+    glyphs: std.AutoHashMap(u64, c.FT_GlyphSlot),
+    size: u32 = 11,
+
+    pub fn init(path: []const u8) !Self {
+        var self: Self = .{
+            .glyphs = std.AutoHashMap(u64, c.FT_GlyphSlot).init(allocator),
+        };
+
+        if (c.FT_New_Face(ft2_lib, @ptrCast(path), 0, &self.face) != 0) {
+            return error.FTNewFaceFailed;
+        }
+        if (c.FT_Set_Pixel_Sizes(self.face, 0, 11) != 0) {
+            return error.FTSetPixelSizesFailed;
+        }
+
+        return self;
+    }
+
+    pub fn deinit(self: *Self) void {
+        if (c.FT_Done_Face(self.face) != 0) {
+            renderer_log.err("FT_Done_Face failed: {s}\n", .{c.SDL_GetError()});
+        }
+        self.glyphs.deinit();
+    }
+
+    pub fn setSize(self: *const Self, size: u32) !void {
+        if (c.FT_Set_Pixel_Sizes(self.face, 0, size) != 0) {
+            return error.FTSetPixelSizesFailed;
+        }
+        self.size = size;
+    }
+
+    pub fn getGlyph(self: *Self, codepoint: u32) !c.FT_GlyphSlot {
+        var found = self.glyphs.get(@as(u64, codepoint));
+        if (found != null) {
+            return found.?;
+        }
+
+        if (c.FT_Load_Char(self.face, codepoint, c.FT_LOAD_RENDER) != 0) {
+            return error.FTLoadCharFailed;
+        }
+
+        var glyph = self.face.*.glyph;
+        try self.glyphs.put(@as(u64, codepoint), glyph);
+        return glyph;
+    }
+};
+
 /// Font library.
 pub const Fonts = struct {
     const Self = @This();
 
-    allocator: std.mem.Allocator,
+    fonts: std.StringHashMap(Font),
+
+    pub fn init() !Self {
+        if (c.FT_Init_FreeType(&ft2_lib) != 0) {
+            return error.FTInitFailed;
+        }
+
+        return .{ .fonts = std.StringHashMap(Font).init(allocator) };
+    }
+
+    pub fn deinit(self: *Self) void {
+        // Free each font.
+        var iter = self.fonts.valueIterator();
+        while (iter.next()) |font| {
+            font.deinit();
+        }
+
+        // Deinitialize the hashmap.
+        self.fonts.deinit();
+
+        // Deinitialize the font library.
+        if (c.FT_Done_FreeType(ft2_lib) != 0) {
+            renderer_log.err("FT_Done_FreeType failed: {s}\n", .{c.SDL_GetError()});
+        }
+    }
+
+    pub fn load(self: *Self, name: []const u8, path: []const u8) !Font {
+        var font = try Font.init(path);
+        try self.fonts.put(name, font);
+        return font;
+    }
+
+    pub fn get(self: *const Self, name: []const u8) !Font {
+        var found = self.fonts.get(name);
+        if (found != null) {
+            return found.?;
+        }
+
+        return error.FontNotFound;
+    }
 };
+
+var allocator: std.mem.Allocator = undefined;
+var events_arena: std.heap.ArenaAllocator = undefined;
+
+var window: ?*c.SDL_Window = null;
+var _renderer: ?*c.SDL_Renderer = null;
+var ft2_lib: c.FT_Library = undefined;
+var fonts: Fonts = undefined;
 
 pub fn init(_allocator: std.mem.Allocator) !void {
     allocator = _allocator;
     events_arena = std.heap.ArenaAllocator.init(allocator);
+
+    renderer_log.debug("Initializing fonts", .{});
+    fonts = try Fonts.init();
+
+    renderer_log.debug("Loading fonts", .{});
+    _ = try fonts.load("default", "assets/fonts/pixeled.ttf");
 
     renderer_log.debug("Initializing the renderer", .{});
 
@@ -148,6 +250,9 @@ pub fn init(_allocator: std.mem.Allocator) !void {
 pub fn deinit() void {
     renderer_log.debug("Destroying renderer", .{});
     events_arena.deinit();
+
+    // Destroy the font library.
+    defer fonts.deinit();
 
     // Destroy the renderer and window.
     c.SDL_DestroyRenderer(_renderer);
@@ -249,6 +354,76 @@ pub fn drawRect(rect: Rect, color: Color) !void {
     var _rect = c.SDL_Rect{ .x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h };
     if (c.SDL_RenderFillRect(_renderer, &_rect) != 0) {
         return error.SDLRenderFillRectFailed;
+    }
+}
+
+// pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !void {
+//     // ... FIll this in for me!
+// }
+
+pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !void {
+    var font = try fonts.get(name);
+    var x = pos.x;
+    var y = pos.y;
+
+    var pen = c.FT_Vector{ .x = 0, .y = 0 };
+    var prev_glyph: ?c.FT_GlyphSlot = null;
+
+    for (text) |codepoint| {
+        var glyph = try font.getGlyph(codepoint);
+        if (c.FT_Load_Char(font.face, codepoint, c.FT_LOAD_RENDER) != 0) {
+            return error.FTLoadCharFailed;
+        }
+
+        var bitmap = glyph.*.bitmap;
+        var bitmap_left = glyph.*.bitmap_left;
+        var bitmap_top = glyph.*.bitmap_top;
+
+        var x_offset = pen.x + bitmap_left;
+        var y_offset = pen.y - bitmap_top;
+
+        var rect = Rect{
+            .x = @as(i32, @intCast(x + x_offset)),
+            .y = @as(i32, @intCast(y - y_offset)),
+            .w = @as(i32, @intCast(bitmap.width)),
+            .h = @as(i32, @intCast(bitmap.rows)),
+        };
+        var _rect = c.SDL_Rect{ .x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h };
+
+        // Create a texture for the glyph
+        var texture = c.SDL_CreateTexture(
+            _renderer,
+            c.SDL_PIXELFORMAT_ABGR8888,
+            c.SDL_TEXTUREACCESS_STATIC,
+            @intCast(bitmap.width),
+            @intCast(bitmap.rows),
+        );
+        defer c.SDL_DestroyTexture(texture);
+
+        if (texture == null) {
+            return error.SDLCreateTextureFailed;
+        }
+
+        // Set the texture's color
+        if (c.SDL_SetTextureColorMod(texture, color.r, color.g, color.b) != 0) {
+            return error.SDLSetTextureColorModFailed;
+        }
+
+        // Update the texture with the glyph's bitmap
+        if (c.SDL_UpdateTexture(texture, null, bitmap.buffer, bitmap.pitch) != 0) {
+            return error.SDLUpdateTextureFailed;
+        }
+
+        // Copy the texture to the renderer
+        if (c.SDL_RenderCopy(_renderer, texture, null, &_rect) != 0) {
+            return error.SDLRenderCopyFailed;
+        }
+
+        // Advance the pen position
+        pen.x += glyph.*.advance.x >> 6; // Convert from 26.6 fixed-point to integer
+        pen.y += glyph.*.advance.y >> 6; // Convert from 26.6 fixed-point to integer
+
+        prev_glyph = glyph;
     }
 }
 

@@ -233,105 +233,81 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
     try slider(attack, .{
         .direction = .vertical,
         .pos = opts.pos,
-        .size = .{
-            .x = 16,
-            .y = 112,
-        },
+        .size = .{ .x = 16, .y = 112 },
         .min = 0.0,
         .max = 1.0,
         .step = 0.0,
         .colors = .{
-            .background = .{
-                .r = 64,
-                .g = 64,
-                .b = 64,
-            },
-            .foreground = .{
-                .r = 255,
-                .g = 255,
-                .b = 255,
-            },
+            .background = .{ .r = 64, .g = 64, .b = 64 },
+            .foreground = .{ .r = 255, .g = 255, .b = 255 },
         },
     });
+
+    try renderer.drawText(
+        "default",
+        "A",
+        .{ .x = opts.pos.x + 4, .y = opts.pos.y + 112 - 8 },
+        .{ .r = 255, .g = 255, .b = 255 },
+    );
 
     try slider(decay, .{
         .direction = .vertical,
-        .pos = .{
-            .x = 8 + opts.pos.x + 16,
-            .y = opts.pos.y,
-        },
-        .size = .{
-            .x = 16,
-            .y = 112,
-        },
+        .pos = .{ .x = 8 + opts.pos.x + 16, .y = opts.pos.y },
+        .size = .{ .x = 16, .y = 112 },
         .min = 0.0,
         .max = 1.0,
         .step = 0.0,
         .colors = .{
-            .background = .{
-                .r = 64,
-                .g = 64,
-                .b = 64,
-            },
-            .foreground = .{
-                .r = 255,
-                .g = 255,
-                .b = 255,
-            },
+            .background = .{ .r = 64, .g = 64, .b = 64 },
+            .foreground = .{ .r = 255, .g = 255, .b = 255 },
         },
     });
+
+    try renderer.drawText(
+        "default",
+        "A",
+        .{ .x = 8 + opts.pos.x + 16 + 4, .y = opts.pos.y + 112 - 8 },
+        .{ .r = 255, .g = 255, .b = 255 },
+    );
 
     try slider(sustain, .{
         .direction = .vertical,
-        .pos = .{
-            .x = 16 + opts.pos.x + 16 + 16,
-            .y = opts.pos.y,
-        },
-        .size = .{
-            .x = 16,
-            .y = 112,
-        },
+        .pos = .{ .x = 16 + opts.pos.x + 32, .y = opts.pos.y },
+        .size = .{ .x = 16, .y = 112 },
         .min = 0.0,
         .max = 1.0,
         .step = 0.0,
         .colors = .{
-            .background = .{
-                .r = 64,
-                .g = 64,
-                .b = 64,
-            },
-            .foreground = .{
-                .r = 255,
-                .g = 255,
-                .b = 255,
-            },
+            .background = .{ .r = 64, .g = 64, .b = 64 },
+            .foreground = .{ .r = 255, .g = 255, .b = 255 },
         },
     });
 
+    try renderer.drawText(
+        "default",
+        "S",
+        .{ .x = 16 + opts.pos.x + 32 + 4, .y = opts.pos.y + 112 - 8 },
+
+        .{ .r = 255, .g = 255, .b = 255 },
+    );
+
     try slider(release, .{
         .direction = .vertical,
-        .pos = .{
-            .x = 24 + opts.pos.x + 16 + 16 + 16,
-            .y = opts.pos.y,
-        },
-        .size = .{
-            .x = 16,
-            .y = 112,
-        },
+        .pos = .{ .x = 8 + opts.pos.x + 64, .y = opts.pos.y },
+        .size = .{ .x = 16, .y = 112 },
         .min = 0.0,
         .max = 3.0,
         .step = 0.0,
         .colors = .{
-            .background = .{
-                .r = 64,
-                .g = 64,
-                .b = 64,
-            },
-            .foreground = .{
-                .r = 255,
-                .g = 255,
-                .b = 255,
-            },
+            .background = .{ .r = 64, .g = 64, .b = 64 },
+            .foreground = .{ .r = 255, .g = 255, .b = 255 },
         },
     });
+
+    try renderer.drawText(
+        "default",
+        "R",
+        .{ .x = 12 + opts.pos.x + 64, .y = opts.pos.y + 112 - 8 },
+        .{ .r = 255, .g = 255, .b = 255 },
+    );
 }

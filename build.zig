@@ -38,6 +38,14 @@ pub fn build(b: *std.Build) void {
 // This is stolen from DVUI, not sure how much of it is necessary
 // https://github.com/david-vanderson/dvui/blob/master/build.zig#L112
 fn linkGraphicsDeps(exe: *std.Build.Step.Compile, b: *std.Build) void {
+    // Link against the FreeType library.
+    const freetype_dep = b.dependency("freetype", .{
+        .target = exe.target,
+        .optimize = exe.optimize,
+    });
+    exe.linkLibrary(freetype_dep.artifact("freetype"));
+
+    // Link against the C standard library.
     exe.linkLibC();
 
     if (exe.target.isWindows()) {
