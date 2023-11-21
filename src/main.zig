@@ -42,8 +42,15 @@ pub fn main() !void {
     var is_mouse_down = false;
 
     // Test UI state
-    var filter_frequency: f32 = 440.0;
-    var attack_time: f32 = 0.1;
+    // var filter_frequency: f32 = 440.0;
+    // _ = filter_frequency;
+    // var attack_time: f32 = 0.1;
+    // _ = attack_time;
+
+    var attack_time: f32 = 0.01;
+    var decay_time: f32 = 0.5;
+    var sustain_level: f32 = 0.01;
+    var release_time: f32 = 0.1;
 
     // Setup the sequencer
     try sequencer.init();
@@ -98,41 +105,12 @@ pub fn main() !void {
         ui.update(mouse_position, is_mouse_down, is_mouse_clicked, delta);
         // Update the sequencer
         sequencer.update();
+        audio.setADSR(attack_time, decay_time, sustain_level, release_time);
 
         // Draw the UI
         try renderer.clear(clear_color);
 
-        // Draw the filter control
-        const normalized_frequency = filter_frequency / 4000.0;
-        const slider_color: u8 = @intFromFloat(150 + (normalized_frequency * 105));
-        try ui.slider(&filter_frequency, .{
-            .min = 60.0,
-            .max = 4000.0,
-            .pos = .{ .x = 16, .y = 16 },
-            .colors = .{ .foreground = .{ .r = slider_color, .g = slider_color, .b = slider_color } },
-        });
-        audio.setFilterFrequency(filter_frequency);
-
-        // Draw the attack control
-        try ui.slider(&attack_time, .{
-            .min = 0.001,
-            .max = 0.5,
-            .pos = .{ .x = 8 + 128, .y = 16 },
-            .size = .{ .x = 136, .y = 16 },
-            .colors = .{ .foreground = .{ .r = @intFromFloat(64 + (attack_time * 255 - 64)), .g = 128, .b = 255 } },
-        });
-        audio.setAttackTime(attack_time);
-
-        // Draw the speed of the sequencer
-        try ui.slider(&sequencer.speed, .{
-            .min = 30.0,
-            .max = 400.0,
-            .pos = .{ .x = 24 + 128 + 128, .y = 16 },
-            .colors = .{ .foreground = .{ .r = 255, .g = 128, .b = 64 } },
-        });
-
-        // Draw the sequencer
-        try sequencer.draw(.{ .x = 16, .y = 48 });
+        try ui.adsr(&attack_time, &decay_time, &sustain_level, &release_time, .{ .pos = .{ .x = 16, .y = 16 } });
 
         // Present the frame
         renderer.present();

@@ -120,3 +120,10 @@ pub fn noteOn(note: i32) void {
 pub fn noteOff() void {
     _state.synth.noteOff();
 }
+
+pub fn setADSR(attack: f32, decay: f32, sustain: f32, release: f32) void {
+    _state.synth.filter_adsr.attack_time = attack;
+    _state.synth.filter_adsr.decay_time = decay;
+    _state.synth.filter_adsr.sustain_level = sustain;
+    _state.synth.filter_adsr.release_time = release;
+}

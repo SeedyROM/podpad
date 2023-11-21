@@ -155,7 +155,8 @@ pub fn slider(value: *f32, opts: slider_opts) !void {
         if (opts.direction == .horizontal) {
             normalized_mouse_position_x = @as(f32, @floatFromInt(mouse_position.x - opts.pos.x)) / @as(f32, @floatFromInt(opts.size.x));
         } else {
-            normalized_mouse_position_y = @as(f32, @floatFromInt(mouse_position.y - opts.pos.y)) / @as(f32, @floatFromInt(opts.size.y));
+            // Get normalized position of the mouse upside down
+            normalized_mouse_position_y = 1.0 - (@as(f32, @floatFromInt(mouse_position.y - opts.pos.y)) / @as(f32, @floatFromInt(opts.size.y)));
         }
 
         // Calculate the new value of the slider
@@ -192,6 +193,9 @@ pub fn slider(value: *f32, opts: slider_opts) !void {
 
     // Draw the foreground
     var normalized_size = normalized_value * @as(f32, @floatFromInt(opts.size.x));
+    if (opts.direction == .vertical) {
+        normalized_size = normalized_value * @as(f32, @floatFromInt(opts.size.y));
+    }
     var current_value_size = @as(i32, @intFromFloat(normalized_size));
 
     if (opts.direction == .horizontal) {
@@ -205,14 +209,129 @@ pub fn slider(value: *f32, opts: slider_opts) !void {
             opts.colors.foreground,
         );
     } else {
+        // Draw the foreground upside down
         try renderer.drawRect(
             .{
                 .x = opts.pos.x,
-                .y = opts.pos.y,
+                .y = opts.pos.y + opts.size.y - current_value_size,
                 .w = opts.size.x,
                 .h = current_value_size,
             },
             opts.colors.foreground,
         );
     }
+}
+
+const adsr_opts = struct {
+    pos: Vec2i = .{
+        .x = 0,
+        .y = 0,
+    },
+};
+
+pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_opts) !void {
+    try slider(attack, .{
+        .direction = .vertical,
+        .pos = opts.pos,
+        .size = .{
+            .x = 16,
+            .y = 112,
+        },
+        .min = 0.0,
+        .max = 1.0,
+        .step = 0.0,
+        .colors = .{
+            .background = .{
+                .r = 64,
+                .g = 64,
+                .b = 64,
+            },
+            .foreground = .{
+                .r = 255,
+                .g = 255,
+                .b = 255,
+            },
+        },
+    });
+
+    try slider(decay, .{
+        .direction = .vertical,
+        .pos = .{
+            .x = 8 + opts.pos.x + 16,
+            .y = opts.pos.y,
+        },
+        .size = .{
+            .x = 16,
+            .y = 112,
+        },
+        .min = 0.0,
+        .max = 1.0,
+        .step = 0.0,
+        .colors = .{
+            .background = .{
+                .r = 64,
+                .g = 64,
+                .b = 64,
+            },
+            .foreground = .{
+                .r = 255,
+                .g = 255,
+                .b = 255,
+            },
+        },
+    });
+
+    try slider(sustain, .{
+        .direction = .vertical,
+        .pos = .{
+            .x = 16 + opts.pos.x + 16 + 16,
+            .y = opts.pos.y,
+        },
+        .size = .{
+            .x = 16,
+            .y = 112,
+        },
+        .min = 0.0,
+        .max = 1.0,
+        .step = 0.0,
+        .colors = .{
+            .background = .{
+                .r = 64,
+                .g = 64,
+                .b = 64,
+            },
+            .foreground = .{
+                .r = 255,
+                .g = 255,
+                .b = 255,
+            },
+        },
+    });
+
+    try slider(release, .{
+        .direction = .vertical,
+        .pos = .{
+            .x = 24 + opts.pos.x + 16 + 16 + 16,
+            .y = opts.pos.y,
+        },
+        .size = .{
+            .x = 16,
+            .y = 112,
+        },
+        .min = 0.0,
+        .max = 3.0,
+        .step = 0.0,
+        .colors = .{
+            .background = .{
+                .r = 64,
+                .g = 64,
+                .b = 64,
+            },
+            .foreground = .{
+                .r = 255,
+                .g = 255,
+                .b = 255,
+            },
+        },
+    });
 }
