@@ -265,7 +265,7 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
 
     try renderer.drawText(
         "default",
-        "A",
+        "D",
         .{ .x = 8 + opts.pos.x + 16 + 4, .y = opts.pos.y + 112 - 8 },
         .{ .r = 255, .g = 255, .b = 255 },
     );

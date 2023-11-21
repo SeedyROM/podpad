@@ -390,18 +390,28 @@ pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !v
         };
         var _rect = c.SDL_Rect{ .x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h };
 
-        // Create a texture for the glyph
+        // Create a texture for the glyph, the glyph's bitmap is grayscale so we need to convert it to RGBA.
         var texture = c.SDL_CreateTexture(
             _renderer,
-            c.SDL_PIXELFORMAT_ABGR8888,
-            c.SDL_TEXTUREACCESS_STATIC,
+            c.SDL_PIXELFORMAT_RGBA8888,
+            c.SDL_TEXTUREACCESS_STREAMING,
             @intCast(bitmap.width),
             @intCast(bitmap.rows),
         );
-        defer c.SDL_DestroyTexture(texture);
 
         if (texture == null) {
             return error.SDLCreateTextureFailed;
+        }
+
+        // convert the glyph's bitmap to RGBA
+        // this needs to be cached with the glyph
+        var rgba = try std.ArrayList(u8).initCapacity(allocator, bitmap.width * bitmap.rows * 4);
+        defer rgba.deinit();
+        for (bitmap.buffer[0 .. bitmap.width * bitmap.rows]) |pixel| {
+            try rgba.append(pixel);
+            try rgba.append(pixel);
+            try rgba.append(pixel);
+            try rgba.append(255);
         }
 
         // Set the texture's color
@@ -410,8 +420,13 @@ pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !v
         }
 
         // Update the texture with the glyph's bitmap
-        if (c.SDL_UpdateTexture(texture, null, bitmap.buffer, bitmap.pitch) != 0) {
+        if (c.SDL_UpdateTexture(texture, null, @ptrCast(rgba.items), @intCast(bitmap.width * 4)) != 0) {
             return error.SDLUpdateTextureFailed;
+        }
+
+        // Set the texture blend mode
+        if (c.SDL_SetTextureBlendMode(texture, c.SDL_BLENDMODE_BLEND) != 0) {
+            return error.SDLSetTextureBlendModeFailed;
         }
 
         // Copy the texture to the renderer

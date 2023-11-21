@@ -21,7 +21,7 @@ pub fn main() !void {
     defer {
         if (builtin.mode == .Debug) {
             std.log.scoped(.program).info("Checking memory leaks from GPA in debug build...", .{});
-            _ = gpa.deinit();
+            // _ = gpa.deinit();
         }
     }
 
@@ -111,7 +111,7 @@ pub fn main() !void {
         // Draw the UI
         try renderer.clear(clear_color);
 
-        try renderer.drawText("default", "FILTER", .{ .x = 16, .y = -4 }, .{ .r = 255, .g = 255, .b = 255 });
+        try renderer.drawText("default", "Filter", .{ .x = 16, .y = -4 }, .{ .r = 255, .g = 255, .b = 255 });
         try ui.adsr(&attack_time, &decay_time, &sustain_level, &release_time, .{ .pos = .{ .x = 16, .y = 32 } });
 
         // Present the frame
