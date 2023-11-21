@@ -357,10 +357,6 @@ pub fn drawRect(rect: Rect, color: Color) !void {
     }
 }
 
-// pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !void {
-//     // ... FIll this in for me!
-// }
-
 pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !void {
     var font = try fonts.get(name);
     var x = pos.x;
@@ -369,6 +365,23 @@ pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !v
     var pen = c.FT_Vector{ .x = 0, .y = 0 };
     var prev_glyph: ?c.FT_GlyphSlot = null;
 
+    // Step 1: Calculate the maximum glyph height
+    var maxHeight: i32 = 0;
+    for (text) |codepoint| {
+        var glyph = try font.getGlyph(codepoint);
+        if (c.FT_Load_Char(font.face, codepoint, c.FT_LOAD_RENDER) != 0) {
+            return error.FTLoadCharFailed;
+        }
+
+        if (@as(i32, @intCast(glyph.*.bitmap.rows)) > maxHeight) {
+            maxHeight = @as(i32, @intCast(glyph.*.bitmap.rows));
+            std.debug.print("maxHeight: {d}\n", .{maxHeight});
+        }
+    }
+
+    // Step 2: Render each glyph with baseline adjustment
+    pen.x = 0;
+    pen.y = 0;
     for (text) |codepoint| {
         var glyph = try font.getGlyph(codepoint);
         if (c.FT_Load_Char(font.face, codepoint, c.FT_LOAD_RENDER) != 0) {
@@ -379,16 +392,16 @@ pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !v
         var bitmap_left = glyph.*.bitmap_left;
         var bitmap_top = glyph.*.bitmap_top;
 
+        // Adjust vertical positioning
+        var y_offset = pen.y + (maxHeight - bitmap_top) + maxHeight;
         var x_offset = pen.x + bitmap_left;
-        var y_offset = pen.y - bitmap_top;
 
-        var rect = Rect{
+        var rect = c.SDL_Rect{
             .x = @as(i32, @intCast(x + x_offset)),
-            .y = @as(i32, @intCast(y - y_offset)),
+            .y = @as(i32, @intCast(y + y_offset)),
             .w = @as(i32, @intCast(bitmap.width)),
             .h = @as(i32, @intCast(bitmap.rows)),
         };
-        var _rect = c.SDL_Rect{ .x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h };
 
         // Create a texture for the glyph, the glyph's bitmap is grayscale so we need to convert it to RGBA.
         var texture = c.SDL_CreateTexture(
@@ -430,7 +443,7 @@ pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !v
         }
 
         // Copy the texture to the renderer
-        if (c.SDL_RenderCopy(_renderer, texture, null, &_rect) != 0) {
+        if (c.SDL_RenderCopy(_renderer, texture, null, &rect) != 0) {
             return error.SDLRenderCopyFailed;
         }
 
