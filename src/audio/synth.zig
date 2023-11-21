@@ -12,7 +12,7 @@ const Self = @This();
 const synth_log = std.log.scoped(.synth);
 
 amp_adsr: ADSR,
-base_frequency: f32 = 440.0,
+base_frequency: f32 = 5000.0,
 dc_blocker: DCBlocker = DCBlocker.init(),
 filter_adsr: ADSR,
 filter: IIRFilter,
@@ -35,7 +35,7 @@ pub fn init(
     filter_adsr.release_time = 0.3;
 
     return .{
-        .oscillator = Oscillator.init(frequency, .triangle),
+        .oscillator = Oscillator.init(frequency, .square),
         .filter_adsr = filter_adsr,
         .amp_adsr = amp_adsr,
         .filter = IIRFilter.init(.lowpass, 1000.0, 2.5, 1.0),

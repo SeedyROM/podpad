@@ -95,17 +95,91 @@ const WindowEvent = union(enum) {
     },
 };
 
+pub const Glyph = struct {
+    const Self = @This();
+
+    texture: ?*c.SDL_Texture = null,
+    rect: Rect = undefined,
+    advance: Vec2i = undefined,
+
+    pub fn fromCodepoint(font: *Font, codepoint: u32, color: Color) !Self {
+        if (c.FT_Load_Char(font.face, codepoint, c.FT_LOAD_RENDER) != 0) {
+            return error.FTLoadCharFailed;
+        }
+
+        var bitmap = font.face.*.glyph.*.bitmap;
+
+        var rect = Rect{
+            .x = 0,
+            .y = 0,
+            .w = @as(i32, @intCast(bitmap.width)),
+            .h = @as(i32, @intCast(bitmap.rows)),
+        };
+
+        var texture = c.SDL_CreateTexture(
+            _renderer,
+            c.SDL_PIXELFORMAT_RGBA8888,
+            c.SDL_TEXTUREACCESS_STREAMING,
+            @intCast(bitmap.width),
+            @intCast(bitmap.rows),
+        );
+
+        if (texture == null) {
+            return error.SDLCreateTextureFailed;
+        }
+
+        // convert the glyph's bitmap to RGBA
+        // this needs to be cached with the glyph
+        var rgba = try std.ArrayList(u8).initCapacity(allocator, bitmap.width * bitmap.rows * 4);
+        defer rgba.deinit();
+        for (bitmap.buffer[0 .. bitmap.width * bitmap.rows]) |pixel| {
+            try rgba.append(pixel);
+            try rgba.append(pixel);
+            try rgba.append(pixel);
+            try rgba.append(255);
+        }
+
+        // Set the texture's color
+        if (c.SDL_SetTextureColorMod(texture, color.r, color.g, color.b) != 0) {
+            return error.SDLSetTextureColorModFailed;
+        }
+
+        // Update the texture with the glyph's bitmap
+        if (c.SDL_UpdateTexture(texture, null, @ptrCast(rgba.items), @intCast(bitmap.width * 4)) != 0) {
+            return error.SDLUpdateTextureFailed;
+        }
+
+        // Set the texture blend mode
+        if (c.SDL_SetTextureBlendMode(texture, c.SDL_BLENDMODE_BLEND) != 0) {
+            return error.SDLSetTextureBlendModeFailed;
+        }
+
+        return .{
+            .texture = texture,
+            .rect = rect,
+            .advance = Vec2i{
+                .x = @as(i32, @intCast(font.face.*.glyph.*.advance.x)),
+                .y = @as(i32, @intCast(font.face.*.glyph.*.advance.y)),
+            },
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        c.SDL_DestroyTexture(self.texture);
+    }
+};
+
 /// A Freetype font.
 pub const Font = struct {
     const Self = @This();
 
     face: c.FT_Face = undefined,
-    glyphs: std.AutoHashMap(u64, c.FT_GlyphSlot),
-    size: u32 = 11,
+    glyphs: std.AutoHashMap(u64, Glyph),
+    size: u32 = 10,
 
     pub fn init(path: []const u8) !Self {
         var self: Self = .{
-            .glyphs = std.AutoHashMap(u64, c.FT_GlyphSlot).init(allocator),
+            .glyphs = std.AutoHashMap(u64, Glyph).init(allocator),
         };
 
         if (c.FT_New_Face(ft2_lib, @ptrCast(path), 0, &self.face) != 0) {
@@ -122,29 +196,31 @@ pub const Font = struct {
         if (c.FT_Done_Face(self.face) != 0) {
             renderer_log.err("FT_Done_Face failed: {s}\n", .{c.SDL_GetError()});
         }
+
+        var glyphs_iter = self.glyphs.valueIterator();
+        while (glyphs_iter.next()) |glyph| {
+            glyph.deinit();
+        }
+
         self.glyphs.deinit();
     }
 
-    pub fn setSize(self: *const Self, size: u32) !void {
+    pub fn setSize(self: *Self, size: u32) !void {
         if (c.FT_Set_Pixel_Sizes(self.face, 0, size) != 0) {
             return error.FTSetPixelSizesFailed;
         }
         self.size = size;
     }
 
-    pub fn getGlyph(self: *Self, codepoint: u32) !c.FT_GlyphSlot {
-        var found = self.glyphs.get(@as(u64, codepoint));
-        if (found != null) {
-            return found.?;
+    pub fn getGlyph(self: *Self, codepoint: u32, color: Color) !Glyph {
+        var glyph = self.glyphs.get(codepoint);
+        if (glyph != null) {
+            return glyph.?;
         }
 
-        if (c.FT_Load_Char(self.face, codepoint, c.FT_LOAD_RENDER) != 0) {
-            return error.FTLoadCharFailed;
-        }
-
-        var glyph = self.face.*.glyph;
-        try self.glyphs.put(@as(u64, codepoint), glyph);
-        return glyph;
+        var new_glyph = try Glyph.fromCodepoint(self, codepoint, color);
+        try self.glyphs.put(codepoint, new_glyph);
+        return new_glyph;
     }
 };
 
@@ -201,10 +277,12 @@ var window: ?*c.SDL_Window = null;
 var _renderer: ?*c.SDL_Renderer = null;
 var ft2_lib: c.FT_Library = undefined;
 var fonts: Fonts = undefined;
+var glyphs: std.ArrayList(Glyph) = undefined;
 
 pub fn init(_allocator: std.mem.Allocator) !void {
     allocator = _allocator;
     events_arena = std.heap.ArenaAllocator.init(allocator);
+    glyphs = try std.ArrayList(Glyph).initCapacity(allocator, 128);
 
     renderer_log.debug("Initializing fonts", .{});
     fonts = try Fonts.init();
@@ -359,97 +437,39 @@ pub fn drawRect(rect: Rect, color: Color) !void {
 
 pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !void {
     var font = try fonts.get(name);
-    var x = pos.x;
-    var y = pos.y;
+    var pen = c.FT_Vector{ .x = pos.x, .y = pos.y };
+    var prev_glyph: ?Glyph = null;
 
-    var pen = c.FT_Vector{ .x = 0, .y = 0 };
-    var prev_glyph: ?c.FT_GlyphSlot = null;
+    // Clear the glyphs array list.
+    glyphs.clearRetainingCapacity();
 
     // Step 1: Calculate the maximum glyph height
-    var maxHeight: i32 = 0;
+    var max_height: i32 = 0;
     for (text) |codepoint| {
-        var glyph = try font.getGlyph(codepoint);
-        if (c.FT_Load_Char(font.face, codepoint, c.FT_LOAD_RENDER) != 0) {
-            return error.FTLoadCharFailed;
-        }
+        var glyph = try font.getGlyph(codepoint, color);
 
-        if (@as(i32, @intCast(glyph.*.bitmap.rows)) > maxHeight) {
-            maxHeight = @as(i32, @intCast(glyph.*.bitmap.rows));
-            std.debug.print("maxHeight: {d}\n", .{maxHeight});
+        try glyphs.append(glyph);
+
+        if (glyph.rect.h > max_height) {
+            max_height = glyph.rect.h;
         }
     }
 
-    // Step 2: Render each glyph with baseline adjustment
-    pen.x = 0;
-    pen.y = 0;
-    for (text) |codepoint| {
-        var glyph = try font.getGlyph(codepoint);
-        if (c.FT_Load_Char(font.face, codepoint, c.FT_LOAD_RENDER) != 0) {
-            return error.FTLoadCharFailed;
-        }
-
-        var bitmap = glyph.*.bitmap;
-        var bitmap_left = glyph.*.bitmap_left;
-        var bitmap_top = glyph.*.bitmap_top;
-
-        // Adjust vertical positioning
-        var y_offset = pen.y + (maxHeight - bitmap_top) + maxHeight;
-        var x_offset = pen.x + bitmap_left;
-
-        var rect = c.SDL_Rect{
-            .x = @as(i32, @intCast(x + x_offset)),
-            .y = @as(i32, @intCast(y + y_offset)),
-            .w = @as(i32, @intCast(bitmap.width)),
-            .h = @as(i32, @intCast(bitmap.rows)),
+    // Step 2: Render each glyph
+    for (glyphs.items) |glyph| {
+        var _rect = c.SDL_Rect{
+            .x = @intCast(pen.x + glyph.rect.x),
+            .y = @intCast(pen.y + (max_height - glyph.rect.y)),
+            .w = @intCast(glyph.rect.w),
+            .h = @intCast(glyph.rect.h),
         };
 
-        // Create a texture for the glyph, the glyph's bitmap is grayscale so we need to convert it to RGBA.
-        var texture = c.SDL_CreateTexture(
-            _renderer,
-            c.SDL_PIXELFORMAT_RGBA8888,
-            c.SDL_TEXTUREACCESS_STREAMING,
-            @intCast(bitmap.width),
-            @intCast(bitmap.rows),
-        );
-
-        if (texture == null) {
-            return error.SDLCreateTextureFailed;
-        }
-
-        // convert the glyph's bitmap to RGBA
-        // this needs to be cached with the glyph
-        var rgba = try std.ArrayList(u8).initCapacity(allocator, bitmap.width * bitmap.rows * 4);
-        defer rgba.deinit();
-        for (bitmap.buffer[0 .. bitmap.width * bitmap.rows]) |pixel| {
-            try rgba.append(pixel);
-            try rgba.append(pixel);
-            try rgba.append(pixel);
-            try rgba.append(255);
-        }
-
-        // Set the texture's color
-        if (c.SDL_SetTextureColorMod(texture, color.r, color.g, color.b) != 0) {
-            return error.SDLSetTextureColorModFailed;
-        }
-
-        // Update the texture with the glyph's bitmap
-        if (c.SDL_UpdateTexture(texture, null, @ptrCast(rgba.items), @intCast(bitmap.width * 4)) != 0) {
-            return error.SDLUpdateTextureFailed;
-        }
-
-        // Set the texture blend mode
-        if (c.SDL_SetTextureBlendMode(texture, c.SDL_BLENDMODE_BLEND) != 0) {
-            return error.SDLSetTextureBlendModeFailed;
-        }
-
-        // Copy the texture to the renderer
-        if (c.SDL_RenderCopy(_renderer, texture, null, &rect) != 0) {
+        if (c.SDL_RenderCopy(_renderer, glyph.texture, null, &_rect) != 0) {
             return error.SDLRenderCopyFailed;
         }
 
-        // Advance the pen position
-        pen.x += glyph.*.advance.x >> 6; // Convert from 26.6 fixed-point to integer
-        pen.y += glyph.*.advance.y >> 6; // Convert from 26.6 fixed-point to integer
+        pen.x += @as(i32, @intCast(glyph.advance.x)) >> 6;
+        pen.y += @as(i32, @intCast(glyph.advance.y)) >> 6;
 
         prev_glyph = glyph;
     }

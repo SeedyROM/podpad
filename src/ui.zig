@@ -274,7 +274,7 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
         .direction = .vertical,
         .pos = .{ .x = 16 + opts.pos.x + 32, .y = opts.pos.y },
         .size = .{ .x = 16, .y = 112 },
-        .min = 0.0,
+        .min = 0.2,
         .max = 1.0,
         .step = 0.0,
         .colors = .{
@@ -295,7 +295,7 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
         .direction = .vertical,
         .pos = .{ .x = 8 + opts.pos.x + 64, .y = opts.pos.y },
         .size = .{ .x = 16, .y = 112 },
-        .min = 0.0,
+        .min = 0.2,
         .max = 3.0,
         .step = 0.0,
         .colors = .{

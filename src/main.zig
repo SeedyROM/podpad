@@ -42,15 +42,14 @@ pub fn main() !void {
     var is_mouse_down = false;
 
     // Test UI state
-    // var filter_frequency: f32 = 440.0;
-    // _ = filter_frequency;
-    // var attack_time: f32 = 0.1;
-    // _ = attack_time;
-
-    var attack_time: f32 = 0.2;
-    var decay_time: f32 = 0.8;
-    var sustain_level: f32 = 0.5;
-    var release_time: f32 = 0.3;
+    const ADSRState = struct {
+        attack_time: f32,
+        decay_time: f32,
+        sustain_level: f32,
+        release_time: f32,
+    };
+    var filter_adsr: ADSRState = .{ .attack_time = 0.2, .decay_time = 0.8, .sustain_level = 0.5, .release_time = 0.3 };
+    var amplitude_adsr: ADSRState = .{ .attack_time = 0.01, .decay_time = 1.0, .sustain_level = 1.0, .release_time = 0.3 };
 
     // Setup the sequencer
     try sequencer.init();
@@ -105,20 +104,36 @@ pub fn main() !void {
         ui.update(mouse_position, is_mouse_down, is_mouse_clicked, delta);
         // Update the sequencer
         sequencer.update();
-        // Set the ADSR
-        audio.setADSR(attack_time, decay_time, sustain_level, release_time);
+        // Set the ADSRs
+        audio.setFilterADSR(filter_adsr.attack_time, filter_adsr.decay_time, filter_adsr.sustain_level, filter_adsr.release_time);
+        audio.setAmplitudeADSR(amplitude_adsr.attack_time, amplitude_adsr.decay_time, amplitude_adsr.sustain_level, amplitude_adsr.release_time);
 
         // Draw the UI
         try renderer.clear(clear_color);
 
         try renderer.drawText("default", "Filter", .{ .x = 16, .y = -4 }, .{ .r = 255, .g = 255, .b = 255 });
-        try ui.adsr(&attack_time, &decay_time, &sustain_level, &release_time, .{ .pos = .{ .x = 16, .y = 32 } });
+        try ui.adsr(
+            &filter_adsr.attack_time,
+            &filter_adsr.decay_time,
+            &filter_adsr.sustain_level,
+            &filter_adsr.release_time,
+            .{ .pos = .{ .x = 16, .y = 32 } },
+        );
+
+        try renderer.drawText("default", "Amplitude", .{ .x = 128 + 32, .y = -4 }, .{ .r = 255, .g = 255, .b = 255 });
+        try ui.adsr(
+            &amplitude_adsr.attack_time,
+            &amplitude_adsr.decay_time,
+            &amplitude_adsr.sustain_level,
+            &amplitude_adsr.release_time,
+            .{ .pos = .{ .x = 128 + 32, .y = 32 } },
+        );
 
         // Present the frame
         renderer.present();
 
-        // Sleep for 16ms
-        std.time.sleep(64 * 1_000_000);
+        // Sleep for a bit
+        std.time.sleep(32 * 1_000_000);
     }
 }
 

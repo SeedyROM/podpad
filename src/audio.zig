@@ -15,8 +15,12 @@ const c = @cImport({
     @cInclude("SDL2/SDL_audio.h");
 });
 
-const util = @import("audio/util.zig");
-const Synth = @import("audio/synth.zig");
+pub const Synth = @import("audio/synth.zig");
+pub const ADSR = @import("audio/adsr.zig");
+pub const Oscillator = @import("audio/oscillator.zig");
+pub const IIRFilter = @import("audio/iir_filter.zig");
+pub const DCBlocker = @import("audio/dc_blocker.zig");
+pub const util = @import("audio/util.zig");
 
 /// State of the audio system.
 const State = struct {
@@ -121,9 +125,16 @@ pub fn noteOff() void {
     _state.synth.noteOff();
 }
 
-pub fn setADSR(attack: f32, decay: f32, sustain: f32, release: f32) void {
+pub fn setFilterADSR(attack: f32, decay: f32, sustain: f32, release: f32) void {
     _state.synth.filter_adsr.attack_time = attack;
     _state.synth.filter_adsr.decay_time = decay;
     _state.synth.filter_adsr.sustain_level = sustain;
     _state.synth.filter_adsr.release_time = release;
+}
+
+pub fn setAmplitudeADSR(attack: f32, decay: f32, sustain: f32, release: f32) void {
+    _state.synth.amp_adsr.attack_time = attack;
+    _state.synth.amp_adsr.decay_time = decay;
+    _state.synth.amp_adsr.sustain_level = sustain;
+    _state.synth.amp_adsr.release_time = release;
 }
