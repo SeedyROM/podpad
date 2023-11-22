@@ -15,8 +15,6 @@ const c = @cImport({
     @cInclude("freetype/freetype.h");
 });
 
-const renderer_log = std.log.scoped(.renderer);
-
 pub const Timer = packed struct {
     start: u64 = 0,
     end: u64 = 0,
@@ -212,15 +210,15 @@ pub const Font = struct {
         self.size = size;
     }
 
-    pub fn getGlyph(self: *Self, codepoint: u32, color: Color) !Glyph {
+    pub fn getGlyph(self: *Self, codepoint: u32, color: Color) !*Glyph {
         var glyph = self.glyphs.get(codepoint);
         if (glyph != null) {
-            return glyph.?;
+            return &(glyph.?);
         }
 
         var new_glyph = try Glyph.fromCodepoint(self, codepoint, color);
         try self.glyphs.put(codepoint, new_glyph);
-        return new_glyph;
+        return &new_glyph;
     }
 };
 
@@ -270,6 +268,8 @@ pub const Fonts = struct {
     }
 };
 
+const renderer_log = std.log.scoped(.renderer);
+
 var allocator: std.mem.Allocator = undefined;
 var events_arena: std.heap.ArenaAllocator = undefined;
 
@@ -277,12 +277,12 @@ var window: ?*c.SDL_Window = null;
 var _renderer: ?*c.SDL_Renderer = null;
 var ft2_lib: c.FT_Library = undefined;
 var fonts: Fonts = undefined;
-var glyphs: std.ArrayList(Glyph) = undefined;
+var glyphs: std.ArrayList(*Glyph) = undefined;
 
 pub fn init(_allocator: std.mem.Allocator, width: u32, height: u32) !void {
     allocator = _allocator;
     events_arena = std.heap.ArenaAllocator.init(allocator);
-    glyphs = try std.ArrayList(Glyph).initCapacity(allocator, 128);
+    glyphs = try std.ArrayList(*Glyph).initCapacity(allocator, 128);
 
     renderer_log.debug("Initializing fonts", .{});
     fonts = try Fonts.init();
@@ -438,10 +438,9 @@ pub fn drawRect(rect: Rect, color: Color) !void {
 pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !void {
     var font = try fonts.get(name);
     var pen = c.FT_Vector{ .x = pos.x, .y = pos.y };
-    var prev_glyph: ?Glyph = null;
 
     // Clear the glyphs array list.
-    glyphs.clearRetainingCapacity();
+    glyphs.clearAndFree();
 
     // Step 1: Calculate the maximum glyph height
     var max_height: i32 = 0;
@@ -456,7 +455,8 @@ pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !v
     }
 
     // Step 2: Render each glyph
-    for (glyphs.items) |glyph| {
+    for (glyphs.items) |_glyph| {
+        const glyph = _glyph.*;
         var _rect = c.SDL_Rect{
             .x = @intCast(pen.x + glyph.rect.x),
             .y = @intCast(pen.y + (max_height - glyph.rect.y)),
@@ -464,14 +464,15 @@ pub fn drawText(name: []const u8, text: []const u8, pos: Vec2i, color: Color) !v
             .h = @intCast(glyph.rect.h),
         };
 
+        std.debug.print("Texture: {any}\n", .{glyph.texture});
+
         if (c.SDL_RenderCopy(_renderer, glyph.texture, null, &_rect) != 0) {
+            renderer_log.err("SDL_RenderCopy failed: {s}\n", .{c.SDL_GetError()});
             return error.SDLRenderCopyFailed;
         }
 
         pen.x += @as(i32, @intCast(glyph.advance.x)) >> 6;
         pen.y += @as(i32, @intCast(glyph.advance.y)) >> 6;
-
-        prev_glyph = glyph;
     }
 }
 

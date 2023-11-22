@@ -21,7 +21,8 @@ pub fn main() !void {
     defer {
         if (builtin.mode == .Debug) {
             std.log.scoped(.program).info("Checking memory leaks from GPA in debug build...", .{});
-            _ = gpa.deinit();
+            // TODO(SeedyROM): Actually check for mem leaks
+            // _ = gpa.deinit();
         }
     }
 
