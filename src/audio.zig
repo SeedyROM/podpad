@@ -94,17 +94,13 @@ fn callback(userdata: ?*anyopaque, stream: [*c]u8, len: c_int) void {
 
     while (buffer.len > 0) {
         // Apply a -20dB gain to the output
-        var x = state.synth.next() * util.dbToLinear(-30);
+        var x = state.synth.next() * util.dbToLinear(-15);
 
         // Add some soft clip
-        // x = util.softClip(x, 1.0);
+        x = util.softClip(x, 1.0);
 
-        // Hard clip just in case
-        if (x > 1.0) x = 1.0;
-        if (x < -1.0) x = -1.0;
-
-        buffer[0] = x;
-        buffer[1] = x;
+        buffer[0] = x / 2.0;
+        buffer[1] = x / 2.0;
         buffer = buffer[2..];
     }
 }
@@ -153,4 +149,8 @@ pub fn setDistortionBias(bias: f32) void {
 
 pub fn getLastSample() f32 {
     return _state.synth.last_value;
+}
+
+pub fn setOutputGain(gain: f32) void {
+    _state.synth.gain = gain;
 }

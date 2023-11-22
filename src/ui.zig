@@ -243,7 +243,7 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
         .pos = opts.pos,
         .size = .{ .x = 16, .y = 112 },
         .min = 0.001,
-        .max = 2.0,
+        .max = 1.0,
         .step = 0.0,
         .colors = .{
             .background = .{ .r = 64, .g = 64, .b = 64 },
@@ -263,7 +263,7 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
         .pos = .{ .x = 8 + opts.pos.x + 16, .y = opts.pos.y },
         .size = .{ .x = 16, .y = 112 },
         .min = 0.00001,
-        .max = 2.0,
+        .max = 0.3,
         .step = 0.0,
         .colors = .{
             .background = .{ .r = 64, .g = 64, .b = 64 },
@@ -304,7 +304,7 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
         .pos = .{ .x = 8 + opts.pos.x + 64, .y = opts.pos.y },
         .size = .{ .x = 16, .y = 112 },
         .min = 0.00001,
-        .max = 3.0,
+        .max = 1.0,
         .step = 0.0,
         .colors = .{
             .background = .{ .r = 64, .g = 64, .b = 64 },

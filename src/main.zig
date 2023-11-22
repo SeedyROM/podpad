@@ -21,7 +21,7 @@ pub fn main() !void {
     defer {
         if (builtin.mode == .Debug) {
             std.log.scoped(.program).info("Checking memory leaks from GPA in debug build...", .{});
-            // _ = gpa.deinit();
+            _ = gpa.deinit();
         }
     }
 
@@ -52,7 +52,7 @@ pub fn main() !void {
     var amplitude_adsr: ADSRState = .{ .attack_time = 0.01, .decay_time = 0.5, .sustain_level = 0.7, .release_time = 0.4 };
 
     var distortion_gain: f32 = 1.0;
-    var distortion_bias: f32 = 0.0;
+    var output_gain: f32 = 1.0;
 
     // Setup the sequencer
     try sequencer.init();
@@ -112,7 +112,8 @@ pub fn main() !void {
         audio.setAmplitudeADSR(amplitude_adsr.attack_time, amplitude_adsr.decay_time, amplitude_adsr.sustain_level, amplitude_adsr.release_time);
         // Set the distortion
         audio.setDistortionGain(distortion_gain);
-        audio.setDistortionBias(distortion_bias);
+        // Set the output gain
+        audio.setOutputGain(output_gain);
 
         // Draw the UI
         try renderer.clear(clear_color);
@@ -140,17 +141,19 @@ pub fn main() !void {
         // Draw the distortion controls
         try renderer.drawText("default", "Distortion", .{ .x = 240, .y = -4 }, .{ .r = 255, .g = 255, .b = 255 });
         try ui.slider(&distortion_gain, .{ .pos = .{ .x = 240, .y = 32 }, .min = 1.0, .max = 10.0 });
-        try ui.slider(&distortion_bias, .{ .pos = .{ .x = 240, .y = 64 }, .min = -1.0, .max = 1.0 });
 
-        // Draw the output VU meter
-        try renderer.drawText("default", "Out", .{ .x = 16, .y = 128 }, .{ .r = 255, .g = 255, .b = 255 });
-        try ui.vu_meter(audio.getLastSample(), .{ .pos = .{ .x = 16, .y = 128 + 16 } });
+        // Draw the output gain control
+        try renderer.drawText("default", "Gain", .{ .x = 240, .y = 32 + 16 }, .{ .r = 255, .g = 255, .b = 255 });
+        try ui.slider(&output_gain, .{ .pos = .{ .x = 240, .y = 64 + 16 }, .min = 0.0, .max = 1.0 });
 
         // Draw the sequencer
         try sequencer.draw(.{ .x = 16, .y = 128 + 48 });
 
         // Present the frame
         renderer.present();
+
+        // Sleep for a bit
+        std.time.sleep(16 * 1_000_000);
     }
 }
 

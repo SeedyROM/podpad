@@ -39,11 +39,11 @@ pub fn init(
     filter_adsr.release_time = 0.3;
 
     return .{
-        .oscillator = Oscillator.init(frequency, .square),
+        .oscillator = Oscillator.init(frequency, .sine),
         .filter_adsr = filter_adsr,
         .amp_adsr = amp_adsr,
         .filter = IIRFilter.init(.lowpass, 1000.0, 2.5, 1.0),
-        .gain = 0.7,
+        .gain = 1.0,
         .distortion = .{},
     };
 }
