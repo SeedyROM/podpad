@@ -134,6 +134,14 @@ pub const slider_opts = struct {
 };
 
 pub fn slider(value: *f32, opts: slider_opts) !void {
+    // Clamp the value
+    if (value.* < opts.min) {
+        value.* = opts.min;
+    }
+    if (value.* > opts.max) {
+        value.* = opts.max;
+    }
+
     // Normalize the value
     var normalized_value = (value.* - opts.min) / (opts.max - opts.min);
 
@@ -234,8 +242,8 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
         .direction = .vertical,
         .pos = opts.pos,
         .size = .{ .x = 16, .y = 112 },
-        .min = 0.0,
-        .max = 1.0,
+        .min = 0.001,
+        .max = 2.0,
         .step = 0.0,
         .colors = .{
             .background = .{ .r = 64, .g = 64, .b = 64 },
@@ -254,8 +262,8 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
         .direction = .vertical,
         .pos = .{ .x = 8 + opts.pos.x + 16, .y = opts.pos.y },
         .size = .{ .x = 16, .y = 112 },
-        .min = 0.0,
-        .max = 1.0,
+        .min = 0.00001,
+        .max = 2.0,
         .step = 0.0,
         .colors = .{
             .background = .{ .r = 64, .g = 64, .b = 64 },
@@ -274,7 +282,7 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
         .direction = .vertical,
         .pos = .{ .x = 16 + opts.pos.x + 32, .y = opts.pos.y },
         .size = .{ .x = 16, .y = 112 },
-        .min = 0.2,
+        .min = 0.00001,
         .max = 1.0,
         .step = 0.0,
         .colors = .{
@@ -295,7 +303,7 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
         .direction = .vertical,
         .pos = .{ .x = 8 + opts.pos.x + 64, .y = opts.pos.y },
         .size = .{ .x = 16, .y = 112 },
-        .min = 0.2,
+        .min = 0.00001,
         .max = 3.0,
         .step = 0.0,
         .colors = .{
@@ -310,4 +318,64 @@ pub fn adsr(attack: *f32, decay: *f32, sustain: *f32, release: *f32, opts: adsr_
         .{ .x = 12 + opts.pos.x + 64, .y = opts.pos.y + 112 - 8 },
         .{ .r = 255, .g = 255, .b = 255 },
     );
+}
+
+pub fn vu_meter(sample: f32, opts: slider_opts) !void {
+    var value: f32 = @fabs(sample);
+
+    // Normalize the value
+    var normalized_value = (value - opts.min) / (opts.max - opts.min);
+
+    // Draw the background
+    if (opts.direction == .horizontal) {
+        try renderer.drawRect(
+            .{
+                .x = opts.pos.x,
+                .y = opts.pos.y,
+                .w = opts.size.x,
+                .h = opts.size.y,
+            },
+            opts.colors.background,
+        );
+    } else {
+        try renderer.drawRect(
+            .{
+                .x = opts.pos.x,
+                .y = opts.pos.y,
+                .w = opts.size.x,
+                .h = opts.size.y,
+            },
+            opts.colors.background,
+        );
+    }
+
+    // Draw the foreground
+    var normalized_size = normalized_value * @as(f32, @floatFromInt(opts.size.x));
+    if (opts.direction == .vertical) {
+        normalized_size = normalized_value * @as(f32, @floatFromInt(opts.size.y));
+    }
+    var current_value_size = @as(i32, @intFromFloat(normalized_size));
+
+    if (opts.direction == .horizontal) {
+        try renderer.drawRect(
+            .{
+                .x = opts.pos.x,
+                .y = opts.pos.y,
+                .w = current_value_size,
+                .h = opts.size.y,
+            },
+            opts.colors.foreground,
+        );
+    } else {
+        // Draw the foreground upside down
+        try renderer.drawRect(
+            .{
+                .x = opts.pos.x,
+                .y = opts.pos.y + opts.size.y - current_value_size,
+                .w = opts.size.x,
+                .h = current_value_size,
+            },
+            opts.colors.foreground,
+        );
+    }
 }

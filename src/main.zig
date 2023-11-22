@@ -26,7 +26,7 @@ pub fn main() !void {
     }
 
     // Initialize the systems
-    try renderer.init(allocator);
+    try renderer.init(allocator, 408, 612);
     defer renderer.deinit();
     try audio.init(allocator);
     defer audio.deinit();
@@ -48,8 +48,11 @@ pub fn main() !void {
         sustain_level: f32,
         release_time: f32,
     };
-    var filter_adsr: ADSRState = .{ .attack_time = 0.2, .decay_time = 0.8, .sustain_level = 0.5, .release_time = 0.3 };
-    var amplitude_adsr: ADSRState = .{ .attack_time = 0.01, .decay_time = 1.0, .sustain_level = 1.0, .release_time = 0.3 };
+    var filter_adsr: ADSRState = .{ .attack_time = 0.5, .decay_time = 0.8, .sustain_level = 0.5, .release_time = 1.2 };
+    var amplitude_adsr: ADSRState = .{ .attack_time = 0.01, .decay_time = 0.5, .sustain_level = 0.7, .release_time = 0.4 };
+
+    var distortion_gain: f32 = 1.0;
+    var distortion_bias: f32 = 0.0;
 
     // Setup the sequencer
     try sequencer.init();
@@ -107,10 +110,14 @@ pub fn main() !void {
         // Set the ADSRs
         audio.setFilterADSR(filter_adsr.attack_time, filter_adsr.decay_time, filter_adsr.sustain_level, filter_adsr.release_time);
         audio.setAmplitudeADSR(amplitude_adsr.attack_time, amplitude_adsr.decay_time, amplitude_adsr.sustain_level, amplitude_adsr.release_time);
+        // Set the distortion
+        audio.setDistortionGain(distortion_gain);
+        audio.setDistortionBias(distortion_bias);
 
         // Draw the UI
         try renderer.clear(clear_color);
 
+        // Draw the filter ADSR
         try renderer.drawText("default", "Filter", .{ .x = 16, .y = -4 }, .{ .r = 255, .g = 255, .b = 255 });
         try ui.adsr(
             &filter_adsr.attack_time,
@@ -120,20 +127,30 @@ pub fn main() !void {
             .{ .pos = .{ .x = 16, .y = 32 } },
         );
 
-        try renderer.drawText("default", "Amplitude", .{ .x = 128 + 32, .y = -4 }, .{ .r = 255, .g = 255, .b = 255 });
+        // Draw the amplitude ADSR
+        try renderer.drawText("default", "Amplitude", .{ .x = 128, .y = -4 }, .{ .r = 255, .g = 255, .b = 255 });
         try ui.adsr(
             &amplitude_adsr.attack_time,
             &amplitude_adsr.decay_time,
             &amplitude_adsr.sustain_level,
             &amplitude_adsr.release_time,
-            .{ .pos = .{ .x = 128 + 32, .y = 32 } },
+            .{ .pos = .{ .x = 128, .y = 32 } },
         );
+
+        // Draw the distortion controls
+        try renderer.drawText("default", "Distortion", .{ .x = 240, .y = -4 }, .{ .r = 255, .g = 255, .b = 255 });
+        try ui.slider(&distortion_gain, .{ .pos = .{ .x = 240, .y = 32 }, .min = 1.0, .max = 10.0 });
+        try ui.slider(&distortion_bias, .{ .pos = .{ .x = 240, .y = 64 }, .min = -1.0, .max = 1.0 });
+
+        // Draw the output VU meter
+        try renderer.drawText("default", "Out", .{ .x = 16, .y = 128 }, .{ .r = 255, .g = 255, .b = 255 });
+        try ui.vu_meter(audio.getLastSample(), .{ .pos = .{ .x = 16, .y = 128 + 16 } });
+
+        // Draw the sequencer
+        try sequencer.draw(.{ .x = 16, .y = 128 + 48 });
 
         // Present the frame
         renderer.present();
-
-        // Sleep for a bit
-        std.time.sleep(32 * 1_000_000);
     }
 }
 

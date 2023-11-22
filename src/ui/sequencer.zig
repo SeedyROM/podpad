@@ -158,7 +158,7 @@ const Pattern = struct {
 pub var pattern: Pattern = undefined;
 pub var duration: f32 = 0.0;
 pub var currentColumn: usize = 0;
-pub var speed: f32 = 300.0;
+pub var speed: f32 = 130.0;
 pub var playing: bool = true;
 
 pub fn init() !void {

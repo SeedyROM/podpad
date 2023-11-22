@@ -94,10 +94,14 @@ fn callback(userdata: ?*anyopaque, stream: [*c]u8, len: c_int) void {
 
     while (buffer.len > 0) {
         // Apply a -20dB gain to the output
-        var x = state.synth.next() * util.dbToLinear(-15);
+        var x = state.synth.next() * util.dbToLinear(-30);
 
         // Add some soft clip
-        x = util.softClip(x, 1.0);
+        // x = util.softClip(x, 1.0);
+
+        // Hard clip just in case
+        if (x > 1.0) x = 1.0;
+        if (x < -1.0) x = -1.0;
 
         buffer[0] = x;
         buffer[1] = x;
@@ -137,4 +141,16 @@ pub fn setAmplitudeADSR(attack: f32, decay: f32, sustain: f32, release: f32) voi
     _state.synth.amp_adsr.decay_time = decay;
     _state.synth.amp_adsr.sustain_level = sustain;
     _state.synth.amp_adsr.release_time = release;
+}
+
+pub fn setDistortionGain(gain: f32) void {
+    _state.synth.distortion.gain = gain;
+}
+
+pub fn setDistortionBias(bias: f32) void {
+    _state.synth.distortion.bias = bias;
+}
+
+pub fn getLastSample() f32 {
+    return _state.synth.last_value;
 }

@@ -8,11 +8,11 @@ pub fn midiNoteToPitch(note: i32) f32 {
 }
 
 /// Soft clip the given input with the given threshold.
-pub fn softClip(input: f32, threshold: f32) f32 {
+pub inline fn softClip(input: f32, threshold: f32) f32 {
     if (input > threshold) {
-        return threshold + (1 - std.math.exp(-input + threshold));
+        return threshold + (1 - @exp(-input + threshold));
     } else if (input < -threshold) {
-        return -threshold - (1 - std.math.exp(input + threshold));
+        return -threshold - (1 - @exp(input + threshold));
     } else {
         return input;
     }

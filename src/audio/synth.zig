@@ -7,6 +7,7 @@ const ADSR = @import("adsr.zig");
 const DCBlocker = @import("dc_blocker.zig");
 const IIRFilter = @import("iir_filter.zig");
 const Oscillator = @import("oscillator.zig");
+const Distortion = @import("distortion.zig");
 
 const Self = @This();
 const synth_log = std.log.scoped(.synth);
@@ -18,6 +19,9 @@ filter_adsr: ADSR,
 filter: IIRFilter,
 gain: f32,
 oscillator: Oscillator,
+distortion: Distortion,
+
+last_value: f32 = 0.0,
 
 pub fn init(
     frequency: f32,
@@ -39,7 +43,8 @@ pub fn init(
         .filter_adsr = filter_adsr,
         .amp_adsr = amp_adsr,
         .filter = IIRFilter.init(.lowpass, 1000.0, 2.5, 1.0),
-        .gain = 1.0,
+        .gain = 0.7,
+        .distortion = .{},
     };
 }
 
@@ -58,13 +63,19 @@ pub fn noteOff(self: *Self) void {
 
 pub fn next(self: *Self) f32 {
     // Calculate the filter cutoff based on the filter ADSR envelope
-    const filter_adsr = self.filter_adsr.next();
-    const cutoff = 120 + (self.base_frequency * filter_adsr);
+    const cutoff = 10 + (self.base_frequency * self.filter_adsr.next());
     self.filter.setFrequency(cutoff);
 
     // Next oscillator sample, apply DC blocker
     var osc_sample = self.dc_blocker.next(self.oscillator.next());
 
     // Filter the signal of the oscillator, then apply the ADSR envelope and gain
-    return self.filter.next(osc_sample) * self.amp_adsr.next() * self.gain;
+    var x = self.filter.next(osc_sample) * self.amp_adsr.next() * self.gain;
+
+    // Apply distortion
+    x = self.distortion.next(x);
+
+    self.last_value = x;
+
+    return x;
 }

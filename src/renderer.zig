@@ -279,7 +279,7 @@ var ft2_lib: c.FT_Library = undefined;
 var fonts: Fonts = undefined;
 var glyphs: std.ArrayList(Glyph) = undefined;
 
-pub fn init(_allocator: std.mem.Allocator) !void {
+pub fn init(_allocator: std.mem.Allocator, width: u32, height: u32) !void {
     allocator = _allocator;
     events_arena = std.heap.ArenaAllocator.init(allocator);
     glyphs = try std.ArrayList(Glyph).initCapacity(allocator, 128);
@@ -302,8 +302,8 @@ pub fn init(_allocator: std.mem.Allocator) !void {
         "<::- podpad -::>",
         c.SDL_WINDOWPOS_CENTERED,
         c.SDL_WINDOWPOS_CENTERED,
-        408,
-        408 + 32,
+        @intCast(width),
+        @intCast(height),
         c.SDL_WINDOW_SHOWN,
     );
     if (window == null) {
