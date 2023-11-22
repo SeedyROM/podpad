@@ -4,7 +4,7 @@ podpad is a simple synthesizer and sequencer built with Zig and SDL2 (SDL3 soon)
 
 ## Example
 
-https://github.com/SeedyROM/podpad/assets/11783357/d2431d36-addc-4c93-bdff-bbe0f361d48c
+https://github.com/SeedyROM/podpad/assets/11783357/cf163150-0b23-40c3-9edc-ab91ba4cc05f
 
 ## Building
 
